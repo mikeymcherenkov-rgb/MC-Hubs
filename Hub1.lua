@@ -2,8 +2,8 @@
     PRO CHEAT HUB v1.2.1
     by mcherenkovYT
     - Custom chat between hub users
-    - Fixed blurry/bright text
-    - Clean UI
+    - Extended ESP settings
+    - Clean UI with Gotham font
 ]]
 
 -- // Services
@@ -21,6 +21,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
 local TextChatService = game:GetService("TextChatService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local Drawing = Drawing or {}
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -71,7 +72,47 @@ local Settings = {
     NoClip = {Enabled = false},
     ClickTP = {Enabled = false},
     BlockSpawn = {Enabled = false, Size = 10, Material = "SmoothPlastic", Color = Color3.fromRGB(255, 255, 255)},
-    ESP = {Enabled = false, Boxes = true, Names = true, Distance = true, Health = true},
+    ESP = {
+        Enabled = false,
+        Boxes = true,
+        BoxType = "2D",
+        BoxColor = Color3.fromRGB(255, 255, 255),
+        BoxThickness = 1,
+        Tracers = true,
+        TracerOrigin = "Bottom",
+        TracerColor = Color3.fromRGB(255, 255, 255),
+        TracerThickness = 1,
+        Names = true,
+        NameColor = Color3.fromRGB(255, 255, 255),
+        NameSize = 13,
+        Distance = true,
+        DistanceColor = Color3.fromRGB(200, 200, 200),
+        Health = true,
+        HealthType = "Bar",
+        HealthColor = Color3.fromRGB(0, 255, 0),
+        HealthPosition = "Top",
+        Skeletons = false,
+        SkeletonColor = Color3.fromRGB(255, 255, 255),
+        HeadDot = false,
+        HeadDotColor = Color3.fromRGB(255, 0, 0),
+        HeadDotSize = 8,
+        Snaplines = false,
+        SnaplineColor = Color3.fromRGB(255, 255, 255),
+        SnaplineThickness = 1,
+        Glow = false,
+        GlowColor = Color3.fromRGB(0, 170, 255),
+        GlowTransparency = 0.7,
+        TeamCheck = false,
+        TeamColor = false,
+        MaxDistance = 500,
+        VisibleOnly = false,
+        Rainbow = false,
+        TextOutline = true,
+        ShowWeapon = false,
+        ShowRank = false,
+        CustomFont = "Gotham",
+        RefreshRate = 2
+    },
     FullBright = {Enabled = false},
     FOV = 70,
     NoFog = {Enabled = false},
@@ -88,15 +129,16 @@ local Settings = {
 
 local FlightObjects = {}
 local ESPObjects = {}
+local ESPConnections = {}
 local AimbotConnection = nil
 local TriggerBotConnection = nil
 local SpawnedBlocks = {}
+local RainbowHue = 0
 
 -- ============ CUSTOM CHAT SYSTEM ============
 local CustomChatMessages = {}
 local ChatRemoteName = "ProHubChat_v121"
 
--- Создаём RemoteEvent для чата если его нет
 local ChatRemote = ReplicatedStorage:FindFirstChild(ChatRemoteName)
 if not ChatRemote then
     ChatRemote = Instance.new("RemoteEvent")
@@ -104,7 +146,6 @@ if not ChatRemote then
     ChatRemote.Parent = ReplicatedStorage
 end
 
--- Приём сообщений от других
 ChatRemote.OnClientEvent:Connect(function(senderName, message, senderUserId)
     if senderUserId == LocalPlayer.UserId then return end
     
@@ -115,7 +156,6 @@ ChatRemote.OnClientEvent:Connect(function(senderName, message, senderUserId)
         UserId = senderUserId
     })
     
-    -- Ограничиваем историю 50 сообщениями
     if #CustomChatMessages > 50 then
         table.remove(CustomChatMessages, 1)
     end
@@ -123,14 +163,11 @@ ChatRemote.OnClientEvent:Connect(function(senderName, message, senderUserId)
     notify(senderName, message, 4)
 end)
 
--- Отправка сообщения
 local function sendCustomChatMessage(message)
     if not message or message == "" then return end
     
-    -- Отправляем всем через RemoteEvent
     ChatRemote:FireAllClients(LocalPlayer.Name, message, LocalPlayer.UserId)
     
-    -- Добавляем своё сообщение в историю
     table.insert(CustomChatMessages, {
         Name = LocalPlayer.Name,
         Message = message,
@@ -142,7 +179,6 @@ local function sendCustomChatMessage(message)
         table.remove(CustomChatMessages, 1)
     end
     
-    -- Пробуем отправить и в обычный чат для тех у кого нет чита
     spawn(function()
         pcall(function()
             local textChannels = TextChatService:FindFirstChild("TextChannels")
@@ -169,6 +205,11 @@ end
 local function getRoot()
     local c = getChar()
     return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+local function getRainbowColor()
+    RainbowHue = (RainbowHue + 1) % 360
+    return Color3.fromHSV(RainbowHue / 360, 1, 1)
 end
 
 local function notify(title, text, dur)
@@ -222,6 +263,13 @@ local function notify(title, text, dur)
         task.wait(0.3)
         sg:Destroy()
     end)
+end
+
+local function raycast(from, to, ignore)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = ignore and {ignore} or {getChar()}
+    return Workspace:Raycast(from, (to - from).Unit * (to - from).Magnitude, params)
 end
 
 -- ============ FLIGHT ============
@@ -379,11 +427,7 @@ local function isVisible(target)
     local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot or not tRoot then return false end
     
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {getChar()}
-    local ray = Workspace:Raycast(myRoot.Position, (tRoot.Position - myRoot.Position).Unit * (tRoot.Position - myRoot.Position).Magnitude, params)
-    
+    local ray = raycast(myRoot.Position, tRoot.Position, getChar())
     if ray then
         return ray.Instance:IsDescendantOf(target.Character)
     end
@@ -450,103 +494,525 @@ local function setupKillAura()
     end
 end
 
--- ============ VISUAL ============
+-- ============ ESP SYSTEM ============
+local function createDrawing(type, properties)
+    local drawing
+    pcall(function()
+        if type == "Line" then drawing = Drawing.new("Line")
+        elseif type == "Text" then drawing = Drawing.new("Text")
+        elseif type == "Square" then drawing = Drawing.new("Square")
+        elseif type == "Circle" then drawing = Drawing.new("Circle")
+        end
+        if drawing then
+            for prop, value in pairs(properties) do
+                pcall(function() drawing[prop] = value end)
+            end
+        end
+    end)
+    return drawing
+end
+
 local function setupESP()
-    for _, obj in pairs(ESPObjects) do for _, v in pairs(obj) do if v then v:Destroy() end end end
+    for _, objList in pairs(ESPObjects) do
+        for _, obj in pairs(objList) do
+            if type(obj) == "table" then
+                for _, d in pairs(obj) do
+                    if d and d.Remove then d:Remove() end
+                end
+            elseif obj and obj.Remove then
+                obj:Remove()
+            end
+        end
+    end
     ESPObjects = {}
+    
+    for _, conn in pairs(ESPConnections) do
+        if conn then conn:Disconnect() end
+    end
+    ESPConnections = {}
+    
     if not Settings.ESP.Enabled then return end
     
     local function addESP(player)
         if player == LocalPlayer then return end
+        if Settings.ESP.TeamCheck and player.Team == LocalPlayer.Team then return end
         
-        local function onChar(char)
+        ESPObjects[player.UserId] = {}
+        
+        local function onCharacter(char)
+            local drawings = {}
             local head = char:WaitForChild("Head", 5)
-            local hum = char:WaitForChild("Humanoid", 5)
-            if not head or not hum then return end
+            local humanoid = char:WaitForChild("Humanoid", 5)
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
             
-            local objects = {}
+            if not head or not humanoid then return end
             
+            local color = Settings.ESP.BoxColor
+            if Settings.ESP.TeamColor and player.Team then
+                color = player.Team.TeamColor.Color
+            end
+            
+            -- 2D Box
+            if Settings.ESP.Boxes and Settings.ESP.BoxType == "2D" then
+                local boxOutline = createDrawing("Square", {
+                    Thickness = Settings.ESP.BoxThickness + 1,
+                    Color = Color3.new(0, 0, 0),
+                    Filled = false,
+                    Visible = false,
+                    ZIndex = 4
+                })
+                local box = createDrawing("Square", {
+                    Thickness = Settings.ESP.BoxThickness,
+                    Color = color,
+                    Filled = false,
+                    Visible = false,
+                    ZIndex = 5
+                })
+                if boxOutline then table.insert(drawings, boxOutline) end
+                if box then table.insert(drawings, box) end
+            end
+            
+            -- Tracers
+            if Settings.ESP.Tracers then
+                local tracer = createDrawing("Line", {
+                    Thickness = Settings.ESP.TracerThickness,
+                    Color = Settings.ESP.TracerColor,
+                    Visible = false,
+                    ZIndex = 2
+                })
+                if tracer then table.insert(drawings, tracer) end
+            end
+            
+            -- Snaplines
+            if Settings.ESP.Snaplines then
+                local snapline = createDrawing("Line", {
+                    Thickness = Settings.ESP.SnaplineThickness,
+                    Color = Settings.ESP.SnaplineColor,
+                    Visible = false,
+                    ZIndex = 2
+                })
+                if snapline then table.insert(drawings, snapline) end
+            end
+            
+            -- Name
             if Settings.ESP.Names then
-                local bb = Instance.new("BillboardGui")
-                bb.Size = UDim2.new(0, 100, 0, 60)
-                bb.StudsOffset = Vector3.new(0, 3, 0)
-                bb.AlwaysOnTop = true
-                bb.Parent = head
+                local nameText = createDrawing("Text", {
+                    Text = player.Name,
+                    Size = Settings.ESP.NameSize,
+                    Color = Settings.ESP.NameColor,
+                    Center = true,
+                    Outline = Settings.ESP.TextOutline,
+                    OutlineColor = Color3.new(0, 0, 0),
+                    Font = Drawing.Fonts.UI,
+                    Visible = false,
+                    ZIndex = 6
+                })
+                if nameText then table.insert(drawings, nameText) end
+            end
+            
+            -- Distance
+            if Settings.ESP.Distance then
+                local distText = createDrawing("Text", {
+                    Text = "0m",
+                    Size = Settings.ESP.NameSize - 2,
+                    Color = Settings.ESP.DistanceColor,
+                    Center = true,
+                    Outline = Settings.ESP.TextOutline,
+                    OutlineColor = Color3.new(0, 0, 0),
+                    Font = Drawing.Fonts.UI,
+                    Visible = false,
+                    ZIndex = 6
+                })
+                if distText then table.insert(drawings, distText) end
+            end
+            
+            -- Health Bar
+            if Settings.ESP.Health and (Settings.ESP.HealthType == "Bar" or Settings.ESP.HealthType == "Both") then
+                local healthBg = createDrawing("Line", {
+                    Thickness = 5,
+                    Color = Color3.new(0.2, 0.2, 0.2),
+                    Visible = false,
+                    ZIndex = 4
+                })
+                local healthFill = createDrawing("Line", {
+                    Thickness = 5,
+                    Color = Settings.ESP.HealthColor,
+                    Visible = false,
+                    ZIndex = 5
+                })
+                if healthBg then table.insert(drawings, healthBg) end
+                if healthFill then table.insert(drawings, healthFill) end
+            end
+            
+            -- Health Text
+            if Settings.ESP.Health and (Settings.ESP.HealthType == "Text" or Settings.ESP.HealthType == "Both") then
+                local healthText = createDrawing("Text", {
+                    Text = "100",
+                    Size = Settings.ESP.NameSize - 2,
+                    Color = Settings.ESP.HealthColor,
+                    Center = true,
+                    Outline = true,
+                    OutlineColor = Color3.new(0, 0, 0),
+                    Font = Drawing.Fonts.UI,
+                    Visible = false,
+                    ZIndex = 6
+                })
+                if healthText then table.insert(drawings, healthText) end
+            end
+            
+            -- Head Dot
+            if Settings.ESP.HeadDot then
+                local dot = createDrawing("Circle", {
+                    Radius = Settings.ESP.HeadDotSize,
+                    Color = Settings.ESP.HeadDotColor,
+                    Filled = true,
+                    Visible = false,
+                    ZIndex = 7
+                })
+                if dot then table.insert(drawings, dot) end
+            end
+            
+            -- Skeleton
+            if Settings.ESP.Skeletons then
+                for i = 1, 14 do
+                    local bone = createDrawing("Line", {
+                        Thickness = 1,
+                        Color = Settings.ESP.SkeletonColor,
+                        Visible = false,
+                        ZIndex = 4
+                    })
+                    if bone then table.insert(drawings, bone) end
+                end
+            end
+            
+            -- Glow
+            if Settings.ESP.Glow then
+                local glowSquare = createDrawing("Square", {
+                    Thickness = 3,
+                    Color = Settings.ESP.GlowColor,
+                    Filled = false,
+                    Transparency = Settings.ESP.GlowTransparency,
+                    Visible = false,
+                    ZIndex = 1
+                })
+                if glowSquare then table.insert(drawings, glowSquare) end
+            end
+            
+            -- Weapon Text
+            if Settings.ESP.ShowWeapon then
+                local weaponText = createDrawing("Text", {
+                    Text = "",
+                    Size = Settings.ESP.NameSize - 2,
+                    Color = Color3.fromRGB(255, 200, 0),
+                    Center = true,
+                    Outline = true,
+                    OutlineColor = Color3.new(0, 0, 0),
+                    Font = Drawing.Fonts.UI,
+                    Visible = false,
+                    ZIndex = 6
+                })
+                if weaponText then table.insert(drawings, weaponText) end
+            end
+            
+            ESPObjects[player.UserId] = drawings
+            
+            -- Update loop
+            local connection = RunService.RenderStepped:Connect(function()
+                if not Settings.ESP.Enabled then
+                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    return
+                end
                 
-                local nl = Instance.new("TextLabel")
-                nl.Size = UDim2.new(1, 0, 0, 20)
-                nl.BackgroundTransparency = 1
-                nl.Text = player.Name
-                nl.TextColor3 = Color3.new(1, 1, 1)
-                nl.TextStrokeTransparency = 0
-                nl.Font = Enum.Font.GothamBold
-                nl.TextSize = 12
-                nl.Parent = bb
+                if not player.Character or player.Character ~= char then return end
+                if not head or not head.Parent or not rootPart or not rootPart.Parent then return end
                 
-                if Settings.ESP.Distance then
-                    local dl = Instance.new("TextLabel")
-                    dl.Size = UDim2.new(1, 0, 0, 20)
-                    dl.Position = UDim2.new(0, 0, 0, 20)
-                    dl.BackgroundTransparency = 1
-                    dl.TextColor3 = Color3.fromRGB(200, 200, 200)
-                    dl.TextStrokeTransparency = 0
-                    dl.Font = Enum.Font.Gotham
-                    dl.TextSize = 10
-                    dl.Parent = bb
-                    
-                    spawn(function()
-                        while Settings.ESP.Enabled and char and char.Parent do
-                            local mr = getRoot()
-                            local tr = char:FindFirstChild("HumanoidRootPart")
-                            if mr and tr then dl.Text = string.format("%.0f studs", (mr.Position - tr.Position).Magnitude) end
-                            task.wait(0.2)
+                local myRoot = getRoot()
+                if myRoot then
+                    local dist = (rootPart.Position - myRoot.Position).Magnitude
+                    if dist > Settings.ESP.MaxDistance then
+                        for _, d in pairs(drawings) do if d then d.Visible = false end end
+                        return
+                    end
+                end
+                
+                if Settings.ESP.VisibleOnly and not isVisible(player) then
+                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    return
+                end
+                
+                if humanoid.Health <= 0 then
+                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    return
+                end
+                
+                if Settings.ESP.Rainbow then color = getRainbowColor() end
+                
+                local headPos = Camera:WorldToViewportPoint(head.Position)
+                local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
+                
+                if headPos.Z <= 0 then
+                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    return
+                end
+                
+                local extents = char:GetExtentsSize()
+                local topPos = Camera:WorldToViewportPoint((head.CFrame * CFrame.new(0, extents.Y/2 + 0.5, 0)).Position)
+                local bottomPos = Camera:WorldToViewportPoint((rootPart.CFrame * CFrame.new(0, -extents.Y/2 - 0.5, 0)).Position)
+                
+                local boxHeight = math.abs(topPos.Y - bottomPos.Y)
+                local boxWidth = boxHeight * 0.5
+                local boxX = headPos.X - boxWidth/2
+                local boxY = topPos.Y
+                
+                -- Update Box
+                if Settings.ESP.Boxes and Settings.ESP.BoxType == "2D" then
+                    local idx = 1
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Square" then
+                            if idx == 1 then
+                                d.Size = Vector2.new(boxWidth, boxHeight)
+                                d.Position = Vector2.new(boxX, boxY)
+                                d.Visible = true
+                            elseif idx == 2 then
+                                d.Size = Vector2.new(boxWidth, boxHeight)
+                                d.Position = Vector2.new(boxX, boxY)
+                                d.Color = color
+                                d.Visible = true
+                            end
+                            idx = idx + 1
                         end
-                    end)
+                    end
                 end
                 
-                if Settings.ESP.Health then
-                    local hb = Instance.new("Frame")
-                    hb.Size = UDim2.new(1, 0, 0, 4)
-                    hb.Position = UDim2.new(0, 0, 0, 40)
-                    hb.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                    hb.Parent = bb
-                    
-                    local hf = Instance.new("Frame")
-                    hf.Size = UDim2.new(hum.Health / hum.MaxHealth, 0, 1, 0)
-                    hf.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                    hf.Parent = hb
-                    
-                    hum.HealthChanged:Connect(function(h)
-                        hf.Size = UDim2.new(h / hum.MaxHealth, 0, 1, 0)
-                        hf.BackgroundColor3 = h < hum.MaxHealth * 0.3 and Color3.fromRGB(255,0,0) or h < hum.MaxHealth * 0.6 and Color3.fromRGB(255,255,0) or Color3.fromRGB(0,255,0)
-                    end)
+                -- Update Tracers
+                if Settings.ESP.Tracers then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.TracerThickness and d.ZIndex == 2 then
+                            local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                            if Settings.ESP.TracerOrigin == "Top" then
+                                startPos = Vector2.new(Camera.ViewportSize.X/2, 0)
+                            elseif Settings.ESP.TracerOrigin == "Middle" then
+                                startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                            elseif Settings.ESP.TracerOrigin == "Mouse" then
+                                startPos = Vector2.new(Mouse.X, Mouse.Y)
+                            end
+                            d.From = startPos
+                            d.To = Vector2.new(rootPos.X, rootPos.Y)
+                            d.Visible = true
+                            break
+                        end
+                    end
                 end
-                objects.Billboard = bb
-            end
+                
+                -- Update Snaplines
+                if Settings.ESP.Snaplines then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.SnaplineThickness and d.ZIndex == 2 then
+                            d.From = Vector2.new(rootPos.X, rootPos.Y)
+                            d.To = Vector2.new(rootPos.X, Camera.ViewportSize.Y)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Name
+                if Settings.ESP.Names then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize then
+                            d.Position = Vector2.new(headPos.X, topPos.Y - 15)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Distance
+                if Settings.ESP.Distance then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 then
+                            local dist = myRoot and math.floor((rootPart.Position - myRoot.Position).Magnitude) or 0
+                            d.Text = dist .. "m"
+                            d.Position = Vector2.new(headPos.X, topPos.Y - 30)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Health Bar
+                if Settings.ESP.Health and (Settings.ESP.HealthType == "Bar" or Settings.ESP.HealthType == "Both") then
+                    local healthPercent = humanoid.Health / humanoid.MaxHealth
+                    local healthColor = Color3.fromHSV(healthPercent * 0.33, 1, 1)
+                    
+                    local barIdx = 1
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Line" and d.Thickness == 5 then
+                            if Settings.ESP.HealthPosition == "Left" then
+                                local barX = boxX - 8
+                                local barHeight = boxHeight * healthPercent
+                                if barIdx == 1 then
+                                    d.From = Vector2.new(barX, boxY + boxHeight)
+                                    d.To = Vector2.new(barX, boxY)
+                                elseif barIdx == 2 then
+                                    d.From = Vector2.new(barX, boxY + boxHeight)
+                                    d.To = Vector2.new(barX, boxY + boxHeight - barHeight)
+                                    d.Color = healthColor
+                                end
+                            elseif Settings.ESP.HealthPosition == "Right" then
+                                local barX = boxX + boxWidth + 8
+                                local barHeight = boxHeight * healthPercent
+                                if barIdx == 1 then
+                                    d.From = Vector2.new(barX, boxY + boxHeight)
+                                    d.To = Vector2.new(barX, boxY)
+                                elseif barIdx == 2 then
+                                    d.From = Vector2.new(barX, boxY + boxHeight)
+                                    d.To = Vector2.new(barX, boxY + boxHeight - barHeight)
+                                    d.Color = healthColor
+                                end
+                            elseif Settings.ESP.HealthPosition == "Top" then
+                                local barY = boxY - 8
+                                local barWidth = boxWidth * healthPercent
+                                if barIdx == 1 then
+                                    d.From = Vector2.new(boxX, barY)
+                                    d.To = Vector2.new(boxX + boxWidth, barY)
+                                elseif barIdx == 2 then
+                                    d.From = Vector2.new(boxX, barY)
+                                    d.To = Vector2.new(boxX + barWidth, barY)
+                                    d.Color = healthColor
+                                end
+                            else
+                                local barY = boxY + boxHeight + 8
+                                local barWidth = boxWidth * healthPercent
+                                if barIdx == 1 then
+                                    d.From = Vector2.new(boxX, barY)
+                                    d.To = Vector2.new(boxX + boxWidth, barY)
+                                elseif barIdx == 2 then
+                                    d.From = Vector2.new(boxX, barY)
+                                    d.To = Vector2.new(boxX + barWidth, barY)
+                                    d.Color = healthColor
+                                end
+                            end
+                            d.Visible = true
+                            barIdx = barIdx + 1
+                        end
+                    end
+                end
+                
+                -- Update Health Text
+                if Settings.ESP.Health and (Settings.ESP.HealthType == "Text" or Settings.ESP.HealthType == "Both") then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 and d.ZIndex == 6 then
+                            d.Text = math.floor(humanoid.Health) .. " HP"
+                            d.Position = Vector2.new(headPos.X, bottomPos.Y + 5)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Head Dot
+                if Settings.ESP.HeadDot then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Circle" then
+                            d.Position = Vector2.new(headPos.X, headPos.Y)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Skeleton
+                if Settings.ESP.Skeletons then
+                    local parts = {
+                        "Head", "UpperTorso", "LowerTorso",
+                        "LeftUpperArm", "LeftLowerArm", "LeftHand",
+                        "RightUpperArm", "RightLowerArm", "RightHand",
+                        "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+                        "RightUpperLeg", "RightLowerLeg", "RightFoot"
+                    }
+                    local connections = {
+                        {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+                        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"},
+                        {"LeftLowerArm", "LeftHand"}, {"UpperTorso", "RightUpperArm"},
+                        {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+                        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"},
+                        {"LeftLowerLeg", "LeftFoot"}, {"LowerTorso", "RightUpperLeg"},
+                        {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+                    }
+                    
+                    local boneIdx = 1
+                    for _, conn in ipairs(connections) do
+                        local partA = char:FindFirstChild(conn[1])
+                        local partB = char:FindFirstChild(conn[2])
+                        if partA and partB then
+                            local posA = Camera:WorldToViewportPoint(partA.Position)
+                            local posB = Camera:WorldToViewportPoint(partB.Position)
+                            for _, d in pairs(drawings) do
+                                if d and d.ClassName == "Line" and d.Thickness == 1 and d.ZIndex == 4 then
+                                    d.From = Vector2.new(posA.X, posA.Y)
+                                    d.To = Vector2.new(posB.X, posB.Y)
+                                    d.Visible = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                -- Update Glow
+                if Settings.ESP.Glow then
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Square" and d.ZIndex == 1 then
+                            d.Size = Vector2.new(boxWidth + 6, boxHeight + 6)
+                            d.Position = Vector2.new(boxX - 3, boxY - 3)
+                            d.Visible = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Update Weapon
+                if Settings.ESP.ShowWeapon then
+                    local tool = humanoid and humanoid.Parent and humanoid.Parent:FindFirstChildOfClass("Tool")
+                    for _, d in pairs(drawings) do
+                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 and d.ZIndex == 6 then
+                            if tool then
+                                d.Text = "[" .. tool.Name .. "]"
+                                d.Position = Vector2.new(headPos.X, bottomPos.Y + 20)
+                            end
+                            d.Visible = tool ~= nil
+                            break
+                        end
+                    end
+                end
+            end)
             
-            if Settings.ESP.Boxes then
-                local box = Instance.new("BoxHandleAdornment")
-                box.Size = char:GetExtentsSize() + Vector3.new(0.5, 0.5, 0.5)
-                box.Adornee = char
-                box.Color3 = Color3.fromRGB(255, 255, 255)
-                box.AlwaysOnTop = true
-                box.ZIndex = 5
-                box.Transparency = 0.3
-                box.Parent = char
-                objects.Box = box
-            end
-            
-            ESPObjects[player.UserId] = objects
+            ESPConnections[player.UserId] = connection
         end
         
-        if player.Character then onChar(player.Character) end
-        player.CharacterAdded:Connect(onChar)
+        if player.Character then onCharacter(player.Character) end
+        player.CharacterAdded:Connect(onCharacter)
     end
     
     for _, p in pairs(Players:GetPlayers()) do addESP(p) end
     Players.PlayerAdded:Connect(addESP)
+    
+    Players.PlayerRemoving:Connect(function(player)
+        if ESPObjects[player.UserId] then
+            for _, d in pairs(ESPObjects[player.UserId]) do
+                if d and d.Remove then d:Remove() end
+            end
+            ESPObjects[player.UserId] = nil
+        end
+        if ESPConnections[player.UserId] then
+            ESPConnections[player.UserId]:Disconnect()
+            ESPConnections[player.UserId] = nil
+        end
+    end)
 end
 
+-- ============ VISUAL ============
 local function setupFullBright()
     if Settings.FullBright.Enabled then
         Lighting.Ambient = Color3.new(1, 1, 1)
@@ -607,10 +1073,7 @@ local function teleportToCursor()
     if not root then return end
     
     local target = Mouse.Hit
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {getChar()}
-    local ray = Workspace:Raycast(target.Position + Vector3.new(0, 20, 0), Vector3.new(0, -40, 0), params)
+    local ray = raycast(target.Position + Vector3.new(0, 20, 0), target.Position + Vector3.new(0, -40, 0))
     local finalPos = target.Position + Vector3.new(0, 3, 0)
     if ray then finalPos = ray.Position + Vector3.new(0, 3, 0) end
     
@@ -638,7 +1101,6 @@ local function createGUI()
     ScreenGui.Parent = game:GetService("CoreGui")
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Main Frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 600, 0, 420)
     MainFrame.Position = UDim2.new(0.5, -300, 0.5, -210)
@@ -656,7 +1118,6 @@ local function createGUI()
     MainStroke.Thickness = 1.2
     MainStroke.Parent = MainFrame
     
-    -- Title Bar
     local TitleBar = Instance.new("Frame")
     TitleBar.Size = UDim2.new(1, 0, 0, 34)
     TitleBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
@@ -683,7 +1144,7 @@ local function createGUI()
     CloseButton.Size = UDim2.new(0, 24, 0, 24)
     CloseButton.Position = UDim2.new(1, -28, 0, 5)
     CloseButton.BackgroundColor3 = Color3.fromRGB(200, 45, 45)
-    CloseButton.Text = "✕"
+    CloseButton.Text = "X"
     CloseButton.TextColor3 = Color3.new(1, 1, 1)
     CloseButton.Font = Enum.Font.GothamBold
     CloseButton.TextSize = 12
@@ -695,7 +1156,6 @@ local function createGUI()
     
     CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
     
-    -- Tab Container
     local TabContainer = Instance.new("Frame")
     TabContainer.Size = UDim2.new(0, 125, 1, -34)
     TabContainer.Position = UDim2.new(0, 3, 0, 38)
@@ -708,7 +1168,6 @@ local function createGUI()
     TabList.SortOrder = Enum.SortOrder.LayoutOrder
     TabList.Parent = TabContainer
     
-    -- Content Frame
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Size = UDim2.new(1, -132, 1, -42)
     ContentFrame.Position = UDim2.new(0, 129, 0, 38)
@@ -789,19 +1248,17 @@ local function createGUI()
         return page
     end
     
-    -- Create Pages
-    local MovementPage = createTab("Movement", "🏃")
-    local BlocksPage = createTab("Blocks", "🧱")
-    local VisualPage = createTab("Visual", "👁")
-    local CombatPage = createTab("Combat", "⚔")
-    local WorldPage = createTab("World", "🌍")
-    local ChatPage = createTab("Hub Chat", "💬")
-    local SettingsPage = createTab("Settings", "⚙")
-    local InstructPage = createTab("Info", "📖")
+    local MovementPage = createTab("Movement", "W")
+    local BlocksPage = createTab("Blocks", "B")
+    local VisualPage = createTab("Visual", "V")
+    local CombatPage = createTab("Combat", "C")
+    local WorldPage = createTab("World", "E")
+    local ChatPage = createTab("Hub Chat", "H")
+    local SettingsPage = createTab("Settings", "S")
+    local InstructPage = createTab("Info", "?")
     
     switchTab(pages[1], tabButtons[1])
     
-    -- UI Elements
     local function addToggle(parent, name, default, callback)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(0, 450, 0, 33)
@@ -992,7 +1449,7 @@ local function createGUI()
     end
     
     -- ============ MOVEMENT TAB ============
-    addLabel(MovementPage, "—— MOVEMENT ——")
+    addLabel(MovementPage, "--- MOVEMENT ---")
     
     addToggle(MovementPage, "Flight", false, function(state) Settings.Flight.Enabled = state; setupFlight() end)
     addSlider(MovementPage, "Flight Speed", 20, 300, 50, function(v) Settings.Flight.Speed = v end)
@@ -1005,14 +1462,14 @@ local function createGUI()
     addToggle(MovementPage, "Click TP (Ctrl+Click)", false, function(state) Settings.ClickTP.Enabled = state end)
     
     -- ============ BLOCKS TAB ============
-    addLabel(BlocksPage, "—— BLOCK SPAWNER ——")
+    addLabel(BlocksPage, "--- BLOCK SPAWNER ---")
     addInfoLabel(BlocksPage, "NumPad1: Spawn | NumPad2: Clear | NumPad3: Teleport")
     
     addButton(BlocksPage, "Spawn Block Under You", function() spawnBlockUnder() end)
     addButton(BlocksPage, "Clear All Blocks", function() clearBlocks() end)
     addSlider(BlocksPage, "Block Size", 2, 50, 10, function(v) Settings.BlockSpawn.Size = v end)
     
-    addLabel(BlocksPage, "—— COLORS ——")
+    addLabel(BlocksPage, "--- COLORS ---")
     
     local colorGrid = Instance.new("Frame")
     colorGrid.Size = UDim2.new(0, 450, 0, 36)
@@ -1049,7 +1506,7 @@ local function createGUI()
         cb.MouseButton1Click:Connect(function() Settings.BlockSpawn.Color = c[1]; notify("Color", c[2], 1.5) end)
     end
     
-    addLabel(BlocksPage, "—— MATERIALS ——")
+    addLabel(BlocksPage, "--- MATERIALS ---")
     
     local matGrid = Instance.new("Frame")
     matGrid.Size = UDim2.new(0, 450, 0, 65)
@@ -1089,13 +1546,31 @@ local function createGUI()
     end
     
     -- ============ VISUAL TAB ============
-    addLabel(VisualPage, "—— VISUAL ——")
+    addLabel(VisualPage, "--- VISUAL ---")
     
     addToggle(VisualPage, "Player ESP", false, function(s) Settings.ESP.Enabled = s; setupESP() end)
     addToggle(VisualPage, "ESP Boxes", true, function(s) Settings.ESP.Boxes = s; setupESP() end)
     addToggle(VisualPage, "ESP Names", true, function(s) Settings.ESP.Names = s; setupESP() end)
     addToggle(VisualPage, "ESP Distance", true, function(s) Settings.ESP.Distance = s; setupESP() end)
     addToggle(VisualPage, "ESP Health", true, function(s) Settings.ESP.Health = s; setupESP() end)
+    
+    addLabel(VisualPage, "--- ESP SETTINGS ---")
+    
+    addToggle(VisualPage, "ESP Tracers", false, function(s) Settings.ESP.Tracers = s; setupESP() end)
+    addToggle(VisualPage, "ESP Snaplines", false, function(s) Settings.ESP.Snaplines = s; setupESP() end)
+    addToggle(VisualPage, "ESP Skeletons", false, function(s) Settings.ESP.Skeletons = s; setupESP() end)
+    addToggle(VisualPage, "ESP Head Dot", false, function(s) Settings.ESP.HeadDot = s; setupESP() end)
+    addToggle(VisualPage, "ESP Glow", false, function(s) Settings.ESP.Glow = s; setupESP() end)
+    addToggle(VisualPage, "ESP Show Weapon", false, function(s) Settings.ESP.ShowWeapon = s; setupESP() end)
+    addToggle(VisualPage, "ESP Team Check", false, function(s) Settings.ESP.TeamCheck = s; setupESP() end)
+    addToggle(VisualPage, "ESP Team Color", false, function(s) Settings.ESP.TeamColor = s; setupESP() end)
+    addToggle(VisualPage, "ESP Rainbow", false, function(s) Settings.ESP.Rainbow = s; setupESP() end)
+    addToggle(VisualPage, "ESP Visible Only", false, function(s) Settings.ESP.VisibleOnly = s; setupESP() end)
+    addToggle(VisualPage, "ESP Text Outline", true, function(s) Settings.ESP.TextOutline = s; setupESP() end)
+    
+    addSlider(VisualPage, "ESP Max Distance", 100, 5000, 500, function(v) Settings.ESP.MaxDistance = v end)
+    addSlider(VisualPage, "ESP Refresh Rate", 1, 10, 2, function(v) Settings.ESP.RefreshRate = v end)
+    
     addToggle(VisualPage, "Full Bright", false, function(s) Settings.FullBright.Enabled = s; setupFullBright() end)
     addSlider(VisualPage, "Field of View", 30, 120, 70, function(v) Settings.FOV = v; Camera.FieldOfView = v end)
     addToggle(VisualPage, "No Fog", false, function(s) Settings.NoFog.Enabled = s; Lighting.FogEnd = s and 9e9 or 500 end)
@@ -1103,7 +1578,7 @@ local function createGUI()
     addToggle(VisualPage, "X-Ray", false, function(s) Settings.XRay.Enabled = s; setupXRay() end)
     
     -- ============ COMBAT TAB ============
-    addLabel(CombatPage, "—— COMBAT ——")
+    addLabel(CombatPage, "--- COMBAT ---")
     
     addToggle(CombatPage, "Aimbot", false, function(s) Settings.Aimbot.Enabled = s; setupAimbot() end)
     addSlider(CombatPage, "Aimbot FOV", 10, 360, 100, function(v) Settings.Aimbot.FOV = v end)
@@ -1114,7 +1589,7 @@ local function createGUI()
     addSlider(CombatPage, "Kill Aura Range", 5, 50, 20, function(v) Settings.KillAura.Range = v end)
     
     -- ============ WORLD TAB ============
-    addLabel(WorldPage, "—— WORLD ——")
+    addLabel(WorldPage, "--- WORLD ---")
     
     addButton(WorldPage, "Teleport to Cursor", function() teleportToCursor(); notify("TP", "Done!", 1.5) end)
     addButton(WorldPage, "FPS Booster", function() boostFPS(); notify("FPS", "Boosted!", 2) end)
@@ -1125,11 +1600,10 @@ local function createGUI()
     addSlider(WorldPage, "Gravity", 0, 500, 196.2, function(v) Settings.Gravity.Value = v; if Settings.Gravity.Enabled then Workspace.Gravity = v end end)
     
     -- ============ HUB CHAT TAB ============
-    addLabel(ChatPage, "—— HUB CHAT ——")
+    addLabel(ChatPage, "--- HUB CHAT ---")
     addInfoLabel(ChatPage, "Chat between Pro Hub users only")
-    addInfoLabel(ChatPage, "Messages are sent via RemoteEvent")
+    addInfoLabel(ChatPage, "Messages sent via RemoteEvent")
     
-    -- Chat display
     local chatDisplay = Instance.new("Frame")
     chatDisplay.Size = UDim2.new(0, 450, 0, 160)
     chatDisplay.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -1155,12 +1629,10 @@ local function createGUI()
     chatLayout.Parent = chatScroller
     
     local function updateChatDisplay()
-        -- Clear old messages
         for _, child in pairs(chatScroller:GetChildren()) do
             if child:IsA("TextLabel") then child:Destroy() end
         end
         
-        -- Show last 20 messages
         local startIndex = math.max(1, #CustomChatMessages - 20)
         for i = startIndex, #CustomChatMessages do
             local msg = CustomChatMessages[i]
@@ -1179,7 +1651,6 @@ local function createGUI()
         chatScroller.CanvasPosition = Vector2.new(0, chatScroller.CanvasSize.Y.Offset)
     end
     
-    -- Chat input
     local chatInputFrame = Instance.new("Frame")
     chatInputFrame.Size = UDim2.new(0, 450, 0, 36)
     chatInputFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -1237,7 +1708,6 @@ local function createGUI()
         if enterPressed then sendHubMessage() end
     end)
     
-    -- Update chat display periodically
     spawn(function()
         while true do
             updateChatDisplay()
@@ -1246,7 +1716,7 @@ local function createGUI()
     end)
     
     -- ============ SETTINGS TAB ============
-    addLabel(SettingsPage, "—— GAME INFO ——")
+    addLabel(SettingsPage, "--- GAME INFO ---")
     
     local gameInfoFrame = Instance.new("Frame")
     gameInfoFrame.Size = UDim2.new(0, 450, 0, 65)
@@ -1298,7 +1768,7 @@ local function createGUI()
         end)
     end)
     
-    addLabel(SettingsPage, "—— PLAYER ——")
+    addLabel(SettingsPage, "--- PLAYER ---")
     
     local playerFrame = Instance.new("Frame")
     playerFrame.Size = UDim2.new(0, 450, 0, 70)
@@ -1359,12 +1829,12 @@ local function createGUI()
     piLabel.TextXAlignment = Enum.TextXAlignment.Left
     piLabel.Parent = playerFrame
     
-    addLabel(SettingsPage, "—— ACTIONS ——")
+    addLabel(SettingsPage, "--- ACTIONS ---")
     addButton(SettingsPage, "Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
     addButton(SettingsPage, "Copy Game Link", function() setclipboard("https://www.roblox.com/games/" .. game.PlaceId .. "/"); notify("Link", "Copied!", 1.5) end)
     
     -- ============ INSTRUCTIONS TAB ============
-    addLabel(InstructPage, "—— CREATOR ——")
+    addLabel(InstructPage, "--- CREATOR ---")
     
     local creatorFrame = Instance.new("Frame")
     creatorFrame.Size = UDim2.new(0, 450, 0, 45)
@@ -1379,69 +1849,17 @@ local function createGUI()
     local crLabel = Instance.new("TextLabel")
     crLabel.Size = UDim2.new(1, 0, 1, 0)
     crLabel.BackgroundTransparency = 1
-    crLabel.Text = "Создатель: mcherenkovYT\nВерсия: v1.2.1"
+    crLabel.Text = "Created by: mcherenkovYT\nVersion: v1.2.1"
     crLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
     crLabel.Font = Enum.Font.GothamBold
     crLabel.TextSize = 11
     crLabel.Parent = creatorFrame
     
-    local instructions = {
-        {"—— MOVEMENT ——", [[
-Flight - Полёт (WASD/Space/Shift/Ctrl)
-Speed Boost - Ускорение ходьбы
-Super Jump - Супер-прыжок
-Infinite Jump - Бесконечные прыжки
-NoClip - Хождение сквозь стены
-Click TP - Телепорт (Ctrl+ЛКМ)]]},
-        {"—— BLOCKS ——", [[
-NumPad1 - Создать блок под собой
-NumPad2 - Очистить все блоки
-NumPad3 - Телепорт к курсору
-Выбери цвет и материал в сетках]]},
-        {"—— VISUAL ——", [[
-ESP - Подсветка игроков
-Full Bright - Полная яркость
-FOV - Поле зрения камеры
-No Fog - Убрать туман
-Chams - Синие игроки через стены
-X-Ray - Прозрачность объектов]]},
-        {"—— COMBAT ——", [[
-Aimbot - Авто-прицеливание
-Trigger Bot - Авто-выстрел
-Silent Aim - Тихое прицеливание
-Kill Aura - Аура убийства]]},
-        {"—— HUB CHAT ——", [[
-Встроенный чат между пользователями чита.
-Сообщения отправляются через RemoteEvent,
-видны только тем у кого есть этот чит.
-Пиши в поле и жми Enter или Send.]]},
-        {"—— WORLD ——", [[
-FPS Booster - Повышение FPS
-Anti-AFK - Защита от бездействия
-Time Changer - Смена времени суток
-Gravity Changer - Изменение гравитации]]}
-    }
-    
-    for _, section in ipairs(instructions) do
-        addLabel(InstructPage, section[1])
-        
-        local instrLabel = Instance.new("TextLabel")
-        instrLabel.Size = UDim2.new(0, 440, 0, string.len(section[2]) / 3)
-        instrLabel.BackgroundTransparency = 1
-        instrLabel.Text = section[2]
-        instrLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
-        instrLabel.Font = Enum.Font.Gotham
-        instrLabel.TextSize = 10
-        instrLabel.TextXAlignment = Enum.TextXAlignment.Left
-        instrLabel.TextYAlignment = Enum.TextYAlignment.Top
-        instrLabel.Parent = InstructPage
-    end
-    
-    addLabel(InstructPage, "—— KEYBINDS ——")
+    addLabel(InstructPage, "--- KEYBINDS ---")
     local keyLabel = Instance.new("TextLabel")
     keyLabel.Size = UDim2.new(0, 450, 0, 50)
     keyLabel.BackgroundTransparency = 1
-    keyLabel.Text = "NumPad1 - Блок | NumPad2 - Очистить\nNumPad3 - Телепорт | RightShift - Скрыть GUI"
+    keyLabel.Text = "NumPad1 - Block | NumPad2 - Clear\nNumPad3 - Teleport | RightShift - Hide GUI"
     keyLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
     keyLabel.Font = Enum.Font.Gotham
     keyLabel.TextSize = 10
