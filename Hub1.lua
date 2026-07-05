@@ -12,11 +12,8 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
 local VirtualUser = game:GetService("VirtualUser")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
-local TextChatService = game:GetService("TextChatService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -27,7 +24,6 @@ local Mouse = LocalPlayer:GetMouse()
 local function setupBypass()
     local oldNamecall
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local args = {...}
         local method = getnamecallmethod()
         if method == "FireServer" then
             local name = tostring(self)
@@ -58,17 +54,13 @@ local Settings = {
     InfiniteJump = {Enabled = false},
     NoClip = {Enabled = false},
     ClickTP = {Enabled = false},
-    BlockSpawn = {Enabled = false, Size = 10, Material = "SmoothPlastic", Color = Color3.fromRGB(255, 255, 255)},
+    BlockSpawn = {Size = 10, Material = "SmoothPlastic", Color = Color3.fromRGB(255, 255, 255)},
     ESP = {
         Enabled = false,
         Boxes = true,
         Names = true,
         Distance = true,
         Health = true,
-        Tracers = false,
-        Snaplines = false,
-        Skeletons = false,
-        HeadDot = false,
         Glow = false,
         ShowWeapon = false,
         TeamCheck = false,
@@ -82,14 +74,6 @@ local Settings = {
         NameSize = 13,
         DistanceColor = Color3.fromRGB(200, 200, 200),
         HealthColor = Color3.fromRGB(0, 255, 0),
-        TracerColor = Color3.fromRGB(255, 255, 255),
-        TracerThickness = 1,
-        TracerOrigin = "Bottom",
-        SnaplineColor = Color3.fromRGB(255, 255, 255),
-        SnaplineThickness = 1,
-        SkeletonColor = Color3.fromRGB(255, 255, 255),
-        HeadDotColor = Color3.fromRGB(255, 0, 0),
-        HeadDotSize = 8,
         GlowColor = Color3.fromRGB(0, 170, 255),
         GlowTransparency = 0.7
     },
@@ -100,7 +84,7 @@ local Settings = {
     XRay = {Enabled = false},
     Aimbot = {Enabled = false, FOV = 100, Smoothness = 0.5, TargetPart = "Head", TeamCheck = false, VisibilityCheck = true},
     TriggerBot = {Enabled = false, Delay = 0.1},
-    SilentAim = {Enabled = false, FOV = 50},
+    SilentAim = {Enabled = false},
     KillAura = {Enabled = false, Range = 20},
     AntiAfk = {Enabled = false},
     TimeChanger = {Enabled = false, Time = 14},
@@ -114,31 +98,6 @@ local AimbotConnection = nil
 local TriggerBotConnection = nil
 local SpawnedBlocks = {}
 local RainbowHue = 0
-
--- Chat System
-local CustomChatMessages = {}
-local ChatRemoteName = "ProHubChat_v121"
-
-local ChatRemote = ReplicatedStorage:FindFirstChild(ChatRemoteName)
-if not ChatRemote then
-    ChatRemote = Instance.new("RemoteEvent")
-    ChatRemote.Name = ChatRemoteName
-    ChatRemote.Parent = ReplicatedStorage
-end
-
-ChatRemote.OnClientEvent:Connect(function(senderName, message, senderUserId)
-    if senderUserId == LocalPlayer.UserId then return end
-    table.insert(CustomChatMessages, {Name = senderName, Message = message, Time = os.time(), UserId = senderUserId})
-    if #CustomChatMessages > 50 then table.remove(CustomChatMessages, 1) end
-    notify(senderName, message, 4)
-end)
-
-local function sendCustomChatMessage(message)
-    if not message or message == "" then return end
-    ChatRemote:FireAllClients(LocalPlayer.Name, message, LocalPlayer.UserId)
-    table.insert(CustomChatMessages, {Name = LocalPlayer.Name, Message = message, Time = os.time(), UserId = LocalPlayer.UserId})
-    if #CustomChatMessages > 50 then table.remove(CustomChatMessages, 1) end
-end
 
 -- Utility Functions
 local function getChar()
@@ -189,7 +148,7 @@ local function notify(title, text, dur)
         tl.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
         tl.Text = "  " .. title
         tl.TextColor3 = Color3.fromRGB(255, 255, 255)
-        tl.Font = Enum.Font.GothamBold
+        tl.Font = Enum.Font.SourceSansBold
         tl.TextSize = 12
         tl.TextXAlignment = Enum.TextXAlignment.Left
         tl.Parent = f
@@ -200,7 +159,7 @@ local function notify(title, text, dur)
         txt.BackgroundTransparency = 1
         txt.Text = text
         txt.TextColor3 = Color3.fromRGB(220, 220, 220)
-        txt.Font = Enum.Font.Gotham
+        txt.Font = Enum.Font.SourceSans
         txt.TextSize = 11
         txt.TextXAlignment = Enum.TextXAlignment.Left
         txt.Parent = f
@@ -289,7 +248,7 @@ local function spawnBlockUnder()
     end
     
     local block = Instance.new("Part")
-    block.Name = "SpawnedBlock_" .. os.time()
+    block.Name = "SpawnedBlock"
     block.Size = Vector3.new(Settings.BlockSpawn.Size, 2, Settings.BlockSpawn.Size)
     block.Position = root.Position - Vector3.new(0, 5, 0)
     block.Anchored = true
@@ -300,7 +259,6 @@ local function spawnBlockUnder()
     
     table.insert(SpawnedBlocks, block)
     notify("Block", "Spawned! Total: " .. #SpawnedBlocks, 2)
-    return block
 end
 
 local function clearBlocks()
@@ -522,7 +480,7 @@ local function setupESP()
                 nameLabel.Text = player.Name
                 nameLabel.TextColor3 = Settings.ESP.NameColor
                 nameLabel.TextStrokeTransparency = Settings.ESP.TextOutline and 0 or 1
-                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.Font = Enum.Font.SourceSansBold
                 nameLabel.TextSize = Settings.ESP.NameSize
                 nameLabel.Parent = billboard
             end
@@ -536,7 +494,7 @@ local function setupESP()
                 distLabel.Text = "0m"
                 distLabel.TextColor3 = Settings.ESP.DistanceColor
                 distLabel.TextStrokeTransparency = Settings.ESP.TextOutline and 0 or 1
-                distLabel.Font = Enum.Font.Gotham
+                distLabel.Font = Enum.Font.SourceSans
                 distLabel.TextSize = Settings.ESP.NameSize - 2
                 distLabel.Name = "Distance"
                 distLabel.Parent = billboard
@@ -566,7 +524,7 @@ local function setupESP()
                 weaponLabel.Text = ""
                 weaponLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
                 weaponLabel.TextStrokeTransparency = 0
-                weaponLabel.Font = Enum.Font.Gotham
+                weaponLabel.Font = Enum.Font.SourceSans
                 weaponLabel.TextSize = Settings.ESP.NameSize - 3
                 weaponLabel.Name = "Weapon"
                 weaponLabel.Visible = false
@@ -756,7 +714,7 @@ local function boostFPS()
     if Terrain then Terrain.WaterWaveSize = 0; Terrain.WaterWaveSpeed = 0; Terrain.WaterReflectance = 0; Terrain.WaterTransparency = 0 end
     Lighting.GlobalShadows = false
     Lighting.FogEnd = 9e9
-    settings().Rendering.QualityLevel = 1
+    pcall(function() settings().Rendering.QualityLevel = 1 end)
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Part") or obj:IsA("UnionOperation") or obj:IsA("MeshPart") then
             obj.Material = Enum.Material.SmoothPlastic; obj.Reflectance = 0
@@ -797,7 +755,7 @@ local function createGUI()
     TitleText.BackgroundTransparency = 1
     TitleText.Text = "PRO CHEAT HUB v1.2.1"
     TitleText.TextColor3 = Color3.fromRGB(0, 180, 255)
-    TitleText.Font = Enum.Font.GothamBold
+    TitleText.Font = Enum.Font.SourceSansBold
     TitleText.TextSize = 13
     TitleText.TextXAlignment = Enum.TextXAlignment.Left
     TitleText.Parent = TitleBar
@@ -808,7 +766,7 @@ local function createGUI()
     CloseButton.BackgroundColor3 = Color3.fromRGB(200, 45, 45)
     CloseButton.Text = "X"
     CloseButton.TextColor3 = Color3.new(1, 1, 1)
-    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Font = Enum.Font.SourceSansBold
     CloseButton.TextSize = 12
     CloseButton.Parent = TitleBar
     
@@ -854,7 +812,7 @@ local function createGUI()
         tabBtn.BackgroundTransparency = 0.05
         tabBtn.Text = " " .. icon .. "  " .. name
         tabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        tabBtn.Font = Enum.Font.Gotham
+        tabBtn.Font = Enum.Font.SourceSans
         tabBtn.TextSize = 11
         tabBtn.TextXAlignment = Enum.TextXAlignment.Left
         tabBtn.AutoButtonColor = false
@@ -898,7 +856,6 @@ local function createGUI()
     local VisualPage = createTab("Visual", "V")
     local CombatPage = createTab("Combat", "C")
     local WorldPage = createTab("World", "E")
-    local ChatPage = createTab("Hub Chat", "H")
     local SettingsPage = createTab("Settings", "S")
     local InstructPage = createTab("Info", "?")
     
@@ -921,7 +878,7 @@ local function createGUI()
         label.BackgroundTransparency = 1
         label.Text = name
         label.TextColor3 = Color3.fromRGB(230, 230, 230)
-        label.Font = Enum.Font.Gotham
+        label.Font = Enum.Font.SourceSans
         label.TextSize = 11
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = frame
@@ -964,7 +921,7 @@ local function createGUI()
         label.BackgroundTransparency = 1
         label.Text = name
         label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        label.Font = Enum.Font.Gotham
+        label.Font = Enum.Font.SourceSans
         label.TextSize = 10
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = frame
@@ -975,7 +932,7 @@ local function createGUI()
         valLabel.BackgroundTransparency = 1
         valLabel.Text = tostring(default)
         valLabel.TextColor3 = Color3.fromRGB(0, 180, 255)
-        valLabel.Font = Enum.Font.GothamBold
+        valLabel.Font = Enum.Font.SourceSansBold
         valLabel.TextSize = 10
         valLabel.TextXAlignment = Enum.TextXAlignment.Right
         valLabel.Parent = frame
@@ -1027,7 +984,7 @@ local function createGUI()
         btn.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
         btn.Text = name
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
+        btn.Font = Enum.Font.SourceSansBold
         btn.TextSize = 11
         btn.AutoButtonColor = false
         btn.Parent = parent
@@ -1049,7 +1006,7 @@ local function createGUI()
         lbl.BackgroundTransparency = 1
         lbl.Text = text
         lbl.TextColor3 = Color3.fromRGB(0, 180, 255)
-        lbl.Font = Enum.Font.GothamBold
+        lbl.Font = Enum.Font.SourceSansBold
         lbl.TextSize = 10
         lbl.TextXAlignment = Enum.TextXAlignment.Center
         lbl.Parent = parent
@@ -1061,7 +1018,7 @@ local function createGUI()
         lbl.BackgroundTransparency = 1
         lbl.Text = text
         lbl.TextColor3 = Color3.fromRGB(160, 160, 160)
-        lbl.Font = Enum.Font.Gotham
+        lbl.Font = Enum.Font.SourceSans
         lbl.TextSize = 9
         lbl.TextXAlignment = Enum.TextXAlignment.Left
         lbl.Parent = parent
@@ -1149,7 +1106,7 @@ local function createGUI()
         mb.BackgroundTransparency = 0.05
         mb.Text = m[2]
         mb.TextColor3 = Color3.fromRGB(220, 220, 220)
-        mb.Font = Enum.Font.Gotham
+        mb.Font = Enum.Font.SourceSans
         mb.TextSize = 9
         mb.AutoButtonColor = false
         mb.Parent = matGrid
@@ -1202,113 +1159,6 @@ local function createGUI()
     addToggle(WorldPage, "Gravity Changer", false, function(s) Settings.Gravity.Enabled = s; Workspace.Gravity = s and Settings.Gravity.Value or 196.2 end)
     addSlider(WorldPage, "Gravity", 0, 500, 196.2, function(v) Settings.Gravity.Value = v; if Settings.Gravity.Enabled then Workspace.Gravity = v end end)
     
-    -- Hub Chat Tab
-    addLabel(ChatPage, "--- HUB CHAT ---")
-    addInfoLabel(ChatPage, "Chat between Pro Hub users only")
-    
-    local chatDisplay = Instance.new("Frame")
-    chatDisplay.Size = UDim2.new(0, 450, 0, 160)
-    chatDisplay.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    chatDisplay.BackgroundTransparency = 0.05
-    chatDisplay.BorderSizePixel = 0
-    chatDisplay.Parent = ChatPage
-    
-    local cdCorner = Instance.new("UICorner"); cdCorner.CornerRadius = UDim.new(0, 5); cdCorner.Parent = chatDisplay
-    local cdStroke = Instance.new("UIStroke"); cdStroke.Color = Color3.fromRGB(0, 140, 200); cdStroke.Thickness = 0.7; cdStroke.Parent = chatDisplay
-    
-    local chatScroller = Instance.new("ScrollingFrame")
-    chatScroller.Size = UDim2.new(1, -8, 1, -8)
-    chatScroller.Position = UDim2.new(0, 4, 0, 4)
-    chatScroller.BackgroundTransparency = 1
-    chatScroller.ScrollBarThickness = 2
-    chatScroller.ScrollBarImageColor3 = Color3.fromRGB(0, 180, 255)
-    chatScroller.CanvasSize = UDim2.new(0, 0, 0, 0)
-    chatScroller.Parent = chatDisplay
-    
-    local chatLayout = Instance.new("UIListLayout"); chatLayout.Padding = UDim.new(0, 2); chatLayout.SortOrder = Enum.SortOrder.LayoutOrder; chatLayout.Parent = chatScroller
-    
-    local function updateChatDisplay()
-        for _, child in pairs(chatScroller:GetChildren()) do
-            if child:IsA("TextLabel") then child:Destroy() end
-        end
-        
-        local startIndex = math.max(1, #CustomChatMessages - 20)
-        for i = startIndex, #CustomChatMessages do
-            local msg = CustomChatMessages[i]
-            local msgLabel = Instance.new("TextLabel")
-            msgLabel.Size = UDim2.new(1, -4, 0, 18)
-            msgLabel.BackgroundTransparency = 1
-            msgLabel.Text = "[" .. msg.Name .. "]: " .. msg.Message
-            msgLabel.TextColor3 = msg.UserId == LocalPlayer.UserId and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(200, 200, 200)
-            msgLabel.Font = Enum.Font.Gotham
-            msgLabel.TextSize = 10
-            msgLabel.TextXAlignment = Enum.TextXAlignment.Left
-            msgLabel.Parent = chatScroller
-        end
-        
-        chatScroller.CanvasSize = UDim2.new(0, 0, 0, math.max(160, #CustomChatMessages * 20))
-        chatScroller.CanvasPosition = Vector2.new(0, chatScroller.CanvasSize.Y.Offset)
-    end
-    
-    local chatInputFrame = Instance.new("Frame")
-    chatInputFrame.Size = UDim2.new(0, 450, 0, 36)
-    chatInputFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    chatInputFrame.BackgroundTransparency = 0.05
-    chatInputFrame.BorderSizePixel = 0
-    chatInputFrame.Parent = ChatPage
-    
-    local ciCorner = Instance.new("UICorner"); ciCorner.CornerRadius = UDim.new(0, 5); ciCorner.Parent = chatInputFrame
-    local ciStroke = Instance.new("UIStroke"); ciStroke.Color = Color3.fromRGB(0, 140, 200); ciStroke.Thickness = 0.7; ciStroke.Parent = chatInputFrame
-    
-    local chatTextBox = Instance.new("TextBox")
-    chatTextBox.Size = UDim2.new(1, -70, 1, 0)
-    chatTextBox.Position = UDim2.new(0, 8, 0, 0)
-    chatTextBox.BackgroundTransparency = 1
-    chatTextBox.PlaceholderText = "Type message..."
-    chatTextBox.PlaceholderColor3 = Color3.fromRGB(140, 140, 140)
-    chatTextBox.Text = ""
-    chatTextBox.TextColor3 = Color3.fromRGB(230, 230, 230)
-    chatTextBox.Font = Enum.Font.Gotham
-    chatTextBox.TextSize = 11
-    chatTextBox.TextXAlignment = Enum.TextXAlignment.Left
-    chatTextBox.ClearTextOnFocus = false
-    chatTextBox.Parent = chatInputFrame
-    
-    local chatSendBtn = Instance.new("TextButton")
-    chatSendBtn.Size = UDim2.new(0, 55, 0, 24)
-    chatSendBtn.Position = UDim2.new(1, -62, 0.5, -12)
-    chatSendBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
-    chatSendBtn.Text = "Send"
-    chatSendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    chatSendBtn.Font = Enum.Font.GothamBold
-    chatSendBtn.TextSize = 11
-    chatSendBtn.AutoButtonColor = false
-    chatSendBtn.Parent = chatInputFrame
-    
-    local csbCorner = Instance.new("UICorner"); csbCorner.CornerRadius = UDim.new(0, 4); csbCorner.Parent = chatSendBtn
-    
-    local function sendHubMessage()
-        local msg = chatTextBox.Text
-        if msg ~= "" then
-            sendCustomChatMessage(msg)
-            chatTextBox.Text = ""
-            updateChatDisplay()
-        end
-    end
-    
-    chatSendBtn.MouseButton1Click:Connect(function()
-        sendHubMessage()
-        chatSendBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 210)
-        task.wait(0.1)
-        chatSendBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
-    end)
-    
-    chatTextBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then sendHubMessage() end
-    end)
-    
-    spawn(function() while true do updateChatDisplay(); task.wait(1) end end)
-    
     -- Settings Tab
     addLabel(SettingsPage, "--- GAME INFO ---")
     
@@ -1328,7 +1178,7 @@ local function createGUI()
     gnLabel.BackgroundTransparency = 1
     gnLabel.Text = "Game: Loading..."
     gnLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-    gnLabel.Font = Enum.Font.GothamBold
+    gnLabel.Font = Enum.Font.SourceSansBold
     gnLabel.TextSize = 11
     gnLabel.TextXAlignment = Enum.TextXAlignment.Left
     gnLabel.Parent = gameInfoFrame
@@ -1339,7 +1189,7 @@ local function createGUI()
     giLabel.BackgroundTransparency = 1
     giLabel.Text = "ID: " .. game.PlaceId
     giLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    giLabel.Font = Enum.Font.Gotham
+    giLabel.Font = Enum.Font.SourceSans
     giLabel.TextSize = 10
     giLabel.TextXAlignment = Enum.TextXAlignment.Left
     giLabel.Parent = gameInfoFrame
@@ -1350,7 +1200,7 @@ local function createGUI()
     gwLabel.BackgroundTransparency = 1
     gwLabel.Text = "World: " .. game.JobId
     gwLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    gwLabel.Font = Enum.Font.Gotham
+    gwLabel.Font = Enum.Font.SourceSans
     gwLabel.TextSize = 10
     gwLabel.TextXAlignment = Enum.TextXAlignment.Left
     gwLabel.Parent = gameInfoFrame
@@ -1396,7 +1246,7 @@ local function createGUI()
     pnLabel.BackgroundTransparency = 1
     pnLabel.Text = LocalPlayer.Name
     pnLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-    pnLabel.Font = Enum.Font.GothamBold
+    pnLabel.Font = Enum.Font.SourceSansBold
     pnLabel.TextSize = 12
     pnLabel.TextXAlignment = Enum.TextXAlignment.Left
     pnLabel.Parent = playerFrame
@@ -1407,7 +1257,7 @@ local function createGUI()
     paLabel.BackgroundTransparency = 1
     paLabel.Text = "@" .. LocalPlayer.Name
     paLabel.TextColor3 = Color3.fromRGB(0, 180, 255)
-    paLabel.Font = Enum.Font.Gotham
+    paLabel.Font = Enum.Font.SourceSans
     paLabel.TextSize = 10
     paLabel.TextXAlignment = Enum.TextXAlignment.Left
     paLabel.Parent = playerFrame
@@ -1418,7 +1268,7 @@ local function createGUI()
     piLabel.BackgroundTransparency = 1
     piLabel.Text = "ID: " .. LocalPlayer.UserId
     piLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
-    piLabel.Font = Enum.Font.Gotham
+    piLabel.Font = Enum.Font.SourceSans
     piLabel.TextSize = 9
     piLabel.TextXAlignment = Enum.TextXAlignment.Left
     piLabel.Parent = playerFrame
@@ -1445,7 +1295,7 @@ local function createGUI()
     crLabel.BackgroundTransparency = 1
     crLabel.Text = "Created by: mcherenkovYT\nVersion: v1.2.1"
     crLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-    crLabel.Font = Enum.Font.GothamBold
+    crLabel.Font = Enum.Font.SourceSansBold
     crLabel.TextSize = 11
     crLabel.Parent = creatorFrame
     
@@ -1455,7 +1305,7 @@ local function createGUI()
     keyLabel.BackgroundTransparency = 1
     keyLabel.Text = "NumPad1 - Block | NumPad2 - Clear\nNumPad3 - Teleport | RightShift - Hide GUI"
     keyLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
-    keyLabel.Font = Enum.Font.Gotham
+    keyLabel.Font = Enum.Font.SourceSans
     keyLabel.TextSize = 10
     keyLabel.TextXAlignment = Enum.TextXAlignment.Left
     keyLabel.Parent = InstructPage
