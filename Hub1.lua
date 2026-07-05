@@ -1,12 +1,9 @@
 --[[
     PRO CHEAT HUB v1.2.1
     by mcherenkovYT
-    - Custom chat between hub users
-    - Extended ESP settings
-    - Clean UI with Gotham font
 ]]
 
--- // Services
+-- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -21,30 +18,22 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
 local TextChatService = game:GetService("TextChatService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local Drawing = Drawing or {}
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- // Anti-Cheat Bypass
+-- Anti-Cheat Bypass
 local function setupBypass()
     local oldNamecall
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         local args = {...}
         local method = getnamecallmethod()
-        
         if method == "FireServer" then
             local name = tostring(self)
-            if name:find("Kick") or name:find("Ban") then
-                return nil
-            end
+            if name:find("Kick") or name:find("Ban") then return nil end
         end
-        
-        if method == "Kick" or method == "kick" then
-            return nil
-        end
-        
+        if method == "Kick" or method == "kick" then return nil end
         return oldNamecall(self, ...)
     end)
     
@@ -55,15 +44,13 @@ local function setupBypass()
                 return oldIndex(self, key)
             end
         end
-        if key == "Detected" or key == "Checking" or key == "Verify" then
-            return false
-        end
+        if key == "Detected" or key == "Checking" or key == "Verify" then return false end
         return oldIndex(self, key)
     end)
 end
 pcall(setupBypass)
 
--- // Settings
+-- Settings
 local Settings = {
     Flight = {Enabled = false, Speed = 50},
     Speed = {Enabled = false, Value = 32},
@@ -75,43 +62,36 @@ local Settings = {
     ESP = {
         Enabled = false,
         Boxes = true,
-        BoxType = "2D",
-        BoxColor = Color3.fromRGB(255, 255, 255),
-        BoxThickness = 1,
-        Tracers = true,
-        TracerOrigin = "Bottom",
-        TracerColor = Color3.fromRGB(255, 255, 255),
-        TracerThickness = 1,
         Names = true,
-        NameColor = Color3.fromRGB(255, 255, 255),
-        NameSize = 13,
         Distance = true,
-        DistanceColor = Color3.fromRGB(200, 200, 200),
         Health = true,
-        HealthType = "Bar",
-        HealthColor = Color3.fromRGB(0, 255, 0),
-        HealthPosition = "Top",
-        Skeletons = false,
-        SkeletonColor = Color3.fromRGB(255, 255, 255),
-        HeadDot = false,
-        HeadDotColor = Color3.fromRGB(255, 0, 0),
-        HeadDotSize = 8,
+        Tracers = false,
         Snaplines = false,
-        SnaplineColor = Color3.fromRGB(255, 255, 255),
-        SnaplineThickness = 1,
+        Skeletons = false,
+        HeadDot = false,
         Glow = false,
-        GlowColor = Color3.fromRGB(0, 170, 255),
-        GlowTransparency = 0.7,
+        ShowWeapon = false,
         TeamCheck = false,
         TeamColor = false,
-        MaxDistance = 500,
-        VisibleOnly = false,
         Rainbow = false,
+        VisibleOnly = false,
         TextOutline = true,
-        ShowWeapon = false,
-        ShowRank = false,
-        CustomFont = "Gotham",
-        RefreshRate = 2
+        MaxDistance = 500,
+        BoxColor = Color3.fromRGB(255, 255, 255),
+        NameColor = Color3.fromRGB(255, 255, 255),
+        NameSize = 13,
+        DistanceColor = Color3.fromRGB(200, 200, 200),
+        HealthColor = Color3.fromRGB(0, 255, 0),
+        TracerColor = Color3.fromRGB(255, 255, 255),
+        TracerThickness = 1,
+        TracerOrigin = "Bottom",
+        SnaplineColor = Color3.fromRGB(255, 255, 255),
+        SnaplineThickness = 1,
+        SkeletonColor = Color3.fromRGB(255, 255, 255),
+        HeadDotColor = Color3.fromRGB(255, 0, 0),
+        HeadDotSize = 8,
+        GlowColor = Color3.fromRGB(0, 170, 255),
+        GlowTransparency = 0.7
     },
     FullBright = {Enabled = false},
     FOV = 70,
@@ -135,7 +115,7 @@ local TriggerBotConnection = nil
 local SpawnedBlocks = {}
 local RainbowHue = 0
 
--- ============ CUSTOM CHAT SYSTEM ============
+-- Chat System
 local CustomChatMessages = {}
 local ChatRemoteName = "ProHubChat_v121"
 
@@ -148,51 +128,19 @@ end
 
 ChatRemote.OnClientEvent:Connect(function(senderName, message, senderUserId)
     if senderUserId == LocalPlayer.UserId then return end
-    
-    table.insert(CustomChatMessages, {
-        Name = senderName,
-        Message = message,
-        Time = os.time(),
-        UserId = senderUserId
-    })
-    
-    if #CustomChatMessages > 50 then
-        table.remove(CustomChatMessages, 1)
-    end
-    
+    table.insert(CustomChatMessages, {Name = senderName, Message = message, Time = os.time(), UserId = senderUserId})
+    if #CustomChatMessages > 50 then table.remove(CustomChatMessages, 1) end
     notify(senderName, message, 4)
 end)
 
 local function sendCustomChatMessage(message)
     if not message or message == "" then return end
-    
     ChatRemote:FireAllClients(LocalPlayer.Name, message, LocalPlayer.UserId)
-    
-    table.insert(CustomChatMessages, {
-        Name = LocalPlayer.Name,
-        Message = message,
-        Time = os.time(),
-        UserId = LocalPlayer.UserId
-    })
-    
-    if #CustomChatMessages > 50 then
-        table.remove(CustomChatMessages, 1)
-    end
-    
-    spawn(function()
-        pcall(function()
-            local textChannels = TextChatService:FindFirstChild("TextChannels")
-            if textChannels then
-                local channel = textChannels:FindFirstChild("RBXGeneral")
-                if channel then
-                    channel:SendAsync("[Hub] " .. message)
-                end
-            end
-        end)
-    end)
+    table.insert(CustomChatMessages, {Name = LocalPlayer.Name, Message = message, Time = os.time(), UserId = LocalPlayer.UserId})
+    if #CustomChatMessages > 50 then table.remove(CustomChatMessages, 1) end
 end
 
--- ============ UTILITY FUNCTIONS ============
+-- Utility Functions
 local function getChar()
     return LocalPlayer.Character
 end
@@ -272,7 +220,7 @@ local function raycast(from, to, ignore)
     return Workspace:Raycast(from, (to - from).Unit * (to - from).Magnitude, params)
 end
 
--- ============ FLIGHT ============
+-- Flight
 local function setupFlight()
     local char = getChar()
     if not char then return end
@@ -328,7 +276,7 @@ local function setupFlight()
     end)
 end
 
--- ============ BLOCK SPAWN ============
+-- Block Spawn
 local function spawnBlockUnder()
     local root = getRoot()
     if not root then return end
@@ -361,7 +309,7 @@ local function clearBlocks()
     notify("Blocks", "Cleared!", 2)
 end
 
--- ============ MOVEMENT ============
+-- Movement
 local function setupSpeed()
     local hum = getHum()
     if hum then hum.WalkSpeed = Settings.Speed.Enabled and Settings.Speed.Value or 16 end
@@ -388,7 +336,7 @@ local function setupNoClip()
     end
 end
 
--- ============ COMBAT ============
+-- Combat
 local function getClosestPlayer(range)
     local closest, shortest = nil, range or math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -426,11 +374,8 @@ local function isVisible(target)
     local myRoot = getRoot()
     local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot or not tRoot then return false end
-    
     local ray = raycast(myRoot.Position, tRoot.Position, getChar())
-    if ray then
-        return ray.Instance:IsDescendantOf(target.Character)
-    end
+    if ray then return ray.Instance:IsDescendantOf(target.Character) end
     return false
 end
 
@@ -494,19 +439,16 @@ local function setupKillAura()
     end
 end
 
--- ============ ESP SYSTEM ============
+-- ESP System
 local function setupESP()
-    -- Clear old ESP
     for _, objList in pairs(ESPObjects) do
         for _, obj in pairs(objList) do
             if type(obj) == "table" then
                 for _, v in pairs(obj) do
-                    if v and v.Remove then v:Remove()
-                    elseif v and v:Destroy then v:Destroy() end
+                    if v and v.Remove then v:Remove() elseif v and v:Destroy then v:Destroy() end
                 end
             elseif obj then
-                if obj.Remove then obj:Remove()
-                elseif obj:Destroy then obj:Destroy() end
+                if obj.Remove then obj:Remove() elseif obj:Destroy then obj:Destroy() end
             end
         end
     end
@@ -518,36 +460,6 @@ local function setupESP()
     ESPConnections = {}
     
     if not Settings.ESP.Enabled then return end
-    
-    -- Check if Drawing is available
-    local useDrawing = false
-    pcall(function()
-        local test = Drawing.new("Line")
-        if test then
-            test:Remove()
-            useDrawing = true
-        end
-    end)
-    
-    local function createDrawing(type, properties)
-        if useDrawing then
-            local drawing
-            pcall(function()
-                if type == "Line" then drawing = Drawing.new("Line")
-                elseif type == "Text" then drawing = Drawing.new("Text")
-                elseif type == "Square" then drawing = Drawing.new("Square")
-                elseif type == "Circle" then drawing = Drawing.new("Circle")
-                end
-                if drawing then
-                    for prop, value in pairs(properties) do
-                        pcall(function() drawing[prop] = value end)
-                    end
-                end
-            end)
-            return drawing
-        end
-        return nil
-    end
     
     local function addESP(player)
         if player == LocalPlayer then return end
@@ -568,14 +480,16 @@ local function setupESP()
                 color = player.Team.TeamColor.Color
             end
             
-            -- Billboard GUI as fallback for names and info
+            -- Billboard GUI
             local billboard = Instance.new("BillboardGui")
             billboard.Size = UDim2.new(0, 200, 0, 80)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
+            billboard.Enabled = true
             billboard.Parent = head
+            table.insert(drawings, billboard)
             
-            -- Box (3D)
+            -- 3D Box
             if Settings.ESP.Boxes then
                 local box = Instance.new("BoxHandleAdornment")
                 box.Size = Vector3.new(2, 3, 1)
@@ -586,6 +500,18 @@ local function setupESP()
                 box.Transparency = 0.3
                 box.Parent = char
                 table.insert(drawings, box)
+            end
+            
+            -- Glow
+            if Settings.ESP.Glow then
+                local glow = Instance.new("Highlight")
+                glow.FillColor = Settings.ESP.GlowColor
+                glow.FillTransparency = Settings.ESP.GlowTransparency
+                glow.OutlineColor = Settings.ESP.GlowColor
+                glow.OutlineTransparency = Settings.ESP.GlowTransparency
+                glow.Enabled = true
+                glow.Parent = char
+                table.insert(drawings, glow)
             end
             
             -- Name
@@ -605,7 +531,7 @@ local function setupESP()
             if Settings.ESP.Distance then
                 local distLabel = Instance.new("TextLabel")
                 distLabel.Size = UDim2.new(1, 0, 0, 18)
-                distLabel.Position = UDim2.new(0, 0, 0, 20)
+                distLabel.Position = UDim2.new(0, 0, 0, Settings.ESP.Names and 20 or 0)
                 distLabel.BackgroundTransparency = 1
                 distLabel.Text = "0m"
                 distLabel.TextColor3 = Settings.ESP.DistanceColor
@@ -620,32 +546,22 @@ local function setupESP()
             if Settings.ESP.Health then
                 local healthBar = Instance.new("Frame")
                 healthBar.Size = UDim2.new(1, 0, 0, 4)
-                healthBar.Position = UDim2.new(0, 0, 0, 38)
+                healthBar.Position = UDim2.new(0, 0, 0, 40)
                 healthBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
                 healthBar.Parent = billboard
                 
                 local healthFill = Instance.new("Frame")
                 healthFill.Size = UDim2.new(1, 0, 1, 0)
                 healthFill.BackgroundColor3 = Settings.ESP.HealthColor
+                healthFill.Name = "HealthFill"
                 healthFill.Parent = healthBar
-            end
-            
-            -- Glow
-            if Settings.ESP.Glow then
-                local glow = Instance.new("Highlight")
-                glow.FillColor = Settings.ESP.GlowColor
-                glow.FillTransparency = Settings.ESP.GlowTransparency
-                glow.OutlineColor = Settings.ESP.GlowColor
-                glow.OutlineTransparency = Settings.ESP.GlowTransparency
-                glow.Parent = char
-                table.insert(drawings, glow)
             end
             
             -- Weapon
             if Settings.ESP.ShowWeapon then
                 local weaponLabel = Instance.new("TextLabel")
                 weaponLabel.Size = UDim2.new(1, 0, 0, 18)
-                weaponLabel.Position = UDim2.new(0, 0, 0, 43)
+                weaponLabel.Position = UDim2.new(0, 0, 0, 48)
                 weaponLabel.BackgroundTransparency = 1
                 weaponLabel.Text = ""
                 weaponLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
@@ -653,69 +569,20 @@ local function setupESP()
                 weaponLabel.Font = Enum.Font.Gotham
                 weaponLabel.TextSize = Settings.ESP.NameSize - 3
                 weaponLabel.Name = "Weapon"
+                weaponLabel.Visible = false
                 weaponLabel.Parent = billboard
             end
             
-            if useDrawing then
-                -- Tracers (Drawing)
-                if Settings.ESP.Tracers then
-                    local tracer = createDrawing("Line", {
-                        Thickness = Settings.ESP.TracerThickness,
-                        Color = Settings.ESP.TracerColor,
-                        Visible = false,
-                        ZIndex = 2
-                    })
-                    if tracer then table.insert(drawings, tracer) end
-                end
-                
-                -- Snaplines (Drawing)
-                if Settings.ESP.Snaplines then
-                    local snapline = createDrawing("Line", {
-                        Thickness = Settings.ESP.SnaplineThickness,
-                        Color = Settings.ESP.SnaplineColor,
-                        Visible = false,
-                        ZIndex = 2
-                    })
-                    if snapline then table.insert(drawings, snapline) end
-                end
-                
-                -- Head Dot (Drawing)
-                if Settings.ESP.HeadDot then
-                    local dot = createDrawing("Circle", {
-                        Radius = Settings.ESP.HeadDotSize,
-                        Color = Settings.ESP.HeadDotColor,
-                        Filled = true,
-                        Visible = false,
-                        ZIndex = 7
-                    })
-                    if dot then table.insert(drawings, dot) end
-                end
-                
-                -- Skeleton (Drawing)
-                if Settings.ESP.Skeletons then
-                    for i = 1, 14 do
-                        local bone = createDrawing("Line", {
-                            Thickness = 1,
-                            Color = Settings.ESP.SkeletonColor,
-                            Visible = false,
-                            ZIndex = 4
-                        })
-                        if bone then table.insert(drawings, bone) end
-                    end
-                end
-            end
-            
             ESPObjects[player.UserId] = drawings
-            ESPObjects[player.UserId].Billboard = billboard
             
             -- Update loop
             local connection = RunService.Heartbeat:Connect(function()
                 if not Settings.ESP.Enabled then
-                    for _, d in pairs(drawings) do
-                        if type(d) == "table" then for _, sub in pairs(d) do if sub.Visible ~= nil then sub.Visible = false end end
-                        elseif d.Visible ~= nil then d.Visible = false end
-                    end
                     if billboard then billboard.Enabled = false end
+                    for _, d in pairs(drawings) do
+                        if d and d.Visible ~= nil then d.Visible = false end
+                        if d and d.Enabled ~= nil then d.Enabled = false end
+                    end
                     return
                 end
                 
@@ -728,8 +595,8 @@ local function setupESP()
                     if dist > Settings.ESP.MaxDistance then
                         if billboard then billboard.Enabled = false end
                         for _, d in pairs(drawings) do
-                            if type(d) == "table" then for _, sub in pairs(d) do if sub.Visible ~= nil then sub.Visible = false end end
-                            elseif d.Visible ~= nil then d.Visible = false end
+                            if d and d.Visible ~= nil then d.Visible = false end
+                            if d and d.Enabled ~= nil then d.Enabled = false end
                         end
                         return
                     end
@@ -737,6 +604,10 @@ local function setupESP()
                 
                 if Settings.ESP.VisibleOnly and not isVisible(player) then
                     if billboard then billboard.Enabled = false end
+                    for _, d in pairs(drawings) do
+                        if d and d.Visible ~= nil then d.Visible = false end
+                        if d and d.Enabled ~= nil then d.Enabled = false end
+                    end
                     return
                 end
                 
@@ -747,10 +618,9 @@ local function setupESP()
                 
                 if Settings.ESP.Rainbow then color = getRainbowColor() end
                 
-                -- Enable billboard
                 if billboard then billboard.Enabled = true end
                 
-                -- Update distance label
+                -- Update distance
                 if Settings.ESP.Distance and myRoot then
                     local distLabel = billboard:FindFirstChild("Distance")
                     if distLabel then
@@ -758,23 +628,24 @@ local function setupESP()
                     end
                 end
                 
-                -- Update health bar
+                -- Update health
                 if Settings.ESP.Health then
                     local healthBar = billboard:FindFirstChild("Frame")
-                    if healthBar and healthBar:FindFirstChild("Frame") then
-                        local healthPercent = humanoid.Health / humanoid.MaxHealth
-                        healthBar:FindFirstChild("Frame").Size = UDim2.new(healthPercent, 0, 1, 0)
-                        local hc = Color3.fromHSV(healthPercent * 0.33, 1, 1)
-                        healthBar:FindFirstChild("Frame").BackgroundColor3 = hc
+                    if healthBar then
+                        local healthFill = healthBar:FindFirstChild("HealthFill")
+                        if healthFill then
+                            local healthPercent = humanoid.Health / humanoid.MaxHealth
+                            healthFill.Size = UDim2.new(healthPercent, 0, 1, 0)
+                            local hc = Color3.fromHSV(healthPercent * 0.33, 1, 1)
+                            healthFill.BackgroundColor3 = hc
+                        end
                     end
                 end
                 
                 -- Update box color
                 if Settings.ESP.Boxes then
                     for _, d in pairs(drawings) do
-                        if d and d:IsA("BoxHandleAdornment") then
-                            d.Color3 = color
-                        end
+                        if d and d:IsA("BoxHandleAdornment") then d.Color3 = color end
                     end
                 end
                 
@@ -787,111 +658,9 @@ local function setupESP()
                         weaponLabel.Visible = tool ~= nil
                     end
                 end
-                
-                -- Update Drawing elements (if available)
-                if useDrawing then
-                    local headPos = Camera:WorldToViewportPoint(head.Position)
-                    local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
-                    
-                    if headPos.Z > 0 then
-                        local extents = char:GetExtentsSize()
-                        local topPos = Camera:WorldToViewportPoint((head.CFrame * CFrame.new(0, extents.Y/2 + 0.5, 0)).Position)
-                        local bottomPos = Camera:WorldToViewportPoint((rootPart.CFrame * CFrame.new(0, -extents.Y/2 - 0.5, 0)).Position)
-                        
-                        local boxHeight = math.abs(topPos.Y - bottomPos.Y)
-                        local boxWidth = boxHeight * 0.5
-                        local boxX = headPos.X - boxWidth/2
-                        local boxY = topPos.Y
-                        
-                        -- Tracers
-                        if Settings.ESP.Tracers then
-                            for _, d in pairs(drawings) do
-                                if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.TracerThickness then
-                                    local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                                    if Settings.ESP.TracerOrigin == "Top" then
-                                        startPos = Vector2.new(Camera.ViewportSize.X/2, 0)
-                                    elseif Settings.ESP.TracerOrigin == "Middle" then
-                                        startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-                                    elseif Settings.ESP.TracerOrigin == "Mouse" then
-                                        startPos = Vector2.new(Mouse.X, Mouse.Y)
-                                    end
-                                    d.From = startPos
-                                    d.To = Vector2.new(rootPos.X, rootPos.Y)
-                                    d.Visible = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        -- Snaplines
-                        if Settings.ESP.Snaplines then
-                            for _, d in pairs(drawings) do
-                                if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.SnaplineThickness then
-                                    d.From = Vector2.new(rootPos.X, rootPos.Y)
-                                    d.To = Vector2.new(rootPos.X, Camera.ViewportSize.Y)
-                                    d.Visible = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        -- Head Dot
-                        if Settings.ESP.HeadDot then
-                            for _, d in pairs(drawings) do
-                                if d and d.ClassName == "Circle" then
-                                    d.Position = Vector2.new(headPos.X, headPos.Y)
-                                    d.Visible = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        -- Skeleton
-                        if Settings.ESP.Skeletons then
-                            local connections = {
-                                {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-                                {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"},
-                                {"LeftLowerArm", "LeftHand"}, {"UpperTorso", "RightUpperArm"},
-                                {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-                                {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"},
-                                {"LeftLowerLeg", "LeftFoot"}, {"LowerTorso", "RightUpperLeg"},
-                                {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
-                            }
-                            
-                            local boneIdx = 1
-                            for _, conn in ipairs(connections) do
-                                local partA = char:FindFirstChild(conn[1])
-                                local partB = char:FindFirstChild(conn[2])
-                                if partA and partB then
-                                    local posA = Camera:WorldToViewportPoint(partA.Position)
-                                    local posB = Camera:WorldToViewportPoint(partB.Position)
-                                    for _, d in pairs(drawings) do
-                                        if d and d.ClassName == "Line" and d.Thickness == 1 and d.ZIndex == 4 then
-                                            if boneIdx == 1 then
-                                                d.From = Vector2.new(posA.X, posA.Y)
-                                                d.To = Vector2.new(posB.X, posB.Y)
-                                                d.Visible = true
-                                                break
-                                            end
-                                            boneIdx = boneIdx - 1
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
             end)
             
             ESPConnections[player.UserId] = connection
-            
-            humanoid.Died:Connect(function()
-                if billboard then billboard:Destroy() end
-                for _, d in pairs(drawings) do
-                    if d and d.Remove then d:Remove() end
-                    if d and d:IsA("Instance") then d:Destroy() end
-                end
-            end)
         end
         
         if player.Character then onCharacter(player.Character) end
@@ -904,9 +673,8 @@ local function setupESP()
     Players.PlayerRemoving:Connect(function(player)
         if ESPObjects[player.UserId] then
             for _, d in pairs(ESPObjects[player.UserId]) do
-                if type(d) == "table" then for _, sub in pairs(d) do if sub.Remove then sub:Remove() end end end
                 if d and d.Remove then d:Remove() end
-                if d and d:IsA("Instance") then d:Destroy() end
+                if d and d:Destroy then d:Destroy() end
             end
             ESPObjects[player.UserId] = nil
         end
@@ -916,7 +684,8 @@ local function setupESP()
         end
     end)
 end
--- ============ VISUAL ============
+
+-- Visual
 local function setupFullBright()
     if Settings.FullBright.Enabled then
         Lighting.Ambient = Color3.new(1, 1, 1)
@@ -957,7 +726,7 @@ local function setupXRay()
     end
 end
 
--- ============ WORLD ============
+-- World
 local function setupAntiAfk()
     if Settings.AntiAfk.Enabled then
         spawn(function()
@@ -975,12 +744,10 @@ end
 local function teleportToCursor()
     local root = getRoot()
     if not root then return end
-    
     local target = Mouse.Hit
     local ray = raycast(target.Position + Vector3.new(0, 20, 0), target.Position + Vector3.new(0, -40, 0))
     local finalPos = target.Position + Vector3.new(0, 3, 0)
     if ray then finalPos = ray.Position + Vector3.new(0, 3, 0) end
-    
     root.CFrame = CFrame.new(finalPos)
 end
 
@@ -990,7 +757,6 @@ local function boostFPS()
     Lighting.GlobalShadows = false
     Lighting.FogEnd = 9e9
     settings().Rendering.QualityLevel = 1
-    
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Part") or obj:IsA("UnionOperation") or obj:IsA("MeshPart") then
             obj.Material = Enum.Material.SmoothPlastic; obj.Reflectance = 0
@@ -998,7 +764,7 @@ local function boostFPS()
     end
 end
 
--- ============ GUI ============
+-- GUI
 local function createGUI()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ProCheatHub"
@@ -1013,14 +779,8 @@ local function createGUI()
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
     
-    local MainCorner = Instance.new("UICorner")
-    MainCorner.CornerRadius = UDim.new(0, 8)
-    MainCorner.Parent = MainFrame
-    
-    local MainStroke = Instance.new("UIStroke")
-    MainStroke.Color = Color3.fromRGB(0, 180, 255)
-    MainStroke.Thickness = 1.2
-    MainStroke.Parent = MainFrame
+    local MainCorner = Instance.new("UICorner"); MainCorner.CornerRadius = UDim.new(0, 8); MainCorner.Parent = MainFrame
+    local MainStroke = Instance.new("UIStroke"); MainStroke.Color = Color3.fromRGB(0, 180, 255); MainStroke.Thickness = 1.2; MainStroke.Parent = MainFrame
     
     local TitleBar = Instance.new("Frame")
     TitleBar.Size = UDim2.new(1, 0, 0, 34)
@@ -1029,9 +789,7 @@ local function createGUI()
     TitleBar.BorderSizePixel = 0
     TitleBar.Parent = MainFrame
     
-    local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 8)
-    TitleCorner.Parent = TitleBar
+    local TitleCorner = Instance.new("UICorner"); TitleCorner.CornerRadius = UDim.new(0, 8); TitleCorner.Parent = TitleBar
     
     local TitleText = Instance.new("TextLabel")
     TitleText.Size = UDim2.new(0, 280, 1, 0)
@@ -1054,10 +812,7 @@ local function createGUI()
     CloseButton.TextSize = 12
     CloseButton.Parent = TitleBar
     
-    local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 5)
-    CloseCorner.Parent = CloseButton
-    
+    local CloseCorner = Instance.new("UICorner"); CloseCorner.CornerRadius = UDim.new(0, 5); CloseCorner.Parent = CloseButton
     CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
     
     local TabContainer = Instance.new("Frame")
@@ -1067,10 +822,7 @@ local function createGUI()
     TabContainer.BorderSizePixel = 0
     TabContainer.Parent = MainFrame
     
-    local TabList = Instance.new("UIListLayout")
-    TabList.Padding = UDim.new(0, 3)
-    TabList.SortOrder = Enum.SortOrder.LayoutOrder
-    TabList.Parent = TabContainer
+    local TabList = Instance.new("UIListLayout"); TabList.Padding = UDim.new(0, 3); TabList.SortOrder = Enum.SortOrder.LayoutOrder; TabList.Parent = TabContainer
     
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Size = UDim2.new(1, -132, 1, -42)
@@ -1108,14 +860,8 @@ local function createGUI()
         tabBtn.AutoButtonColor = false
         tabBtn.Parent = TabContainer
         
-        local tabCorner = Instance.new("UICorner")
-        tabCorner.CornerRadius = UDim.new(0, 7)
-        tabCorner.Parent = tabBtn
-        
-        local tabStroke = Instance.new("UIStroke")
-        tabStroke.Color = Color3.fromRGB(0, 140, 200)
-        tabStroke.Thickness = 0.7
-        tabStroke.Parent = tabBtn
+        local tabCorner = Instance.new("UICorner"); tabCorner.CornerRadius = UDim.new(0, 7); tabCorner.Parent = tabBtn
+        local tabStroke = Instance.new("UIStroke"); tabStroke.Color = Color3.fromRGB(0, 140, 200); tabStroke.Thickness = 0.7; tabStroke.Parent = tabBtn
         
         table.insert(tabButtons, tabBtn)
         
@@ -1128,14 +874,9 @@ local function createGUI()
         page.Visible = false
         page.Parent = ContentFrame
         
-        local layout = Instance.new("UIListLayout")
-        layout.Padding = UDim.new(0, 4)
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Parent = page
+        local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center; layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = page
         
         table.insert(pages, page)
-        
         tabBtn.MouseButton1Click:Connect(function() switchTab(page, tabBtn) end)
         
         page.ChildAdded:Connect(function()
@@ -1171,14 +912,8 @@ local function createGUI()
         frame.BorderSizePixel = 0
         frame.Parent = parent
         
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 5)
-        corner.Parent = frame
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0, 140, 200)
-        stroke.Thickness = 0.7
-        stroke.Parent = frame
+        local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 5); corner.Parent = frame
+        local stroke = Instance.new("UIStroke"); stroke.Color = Color3.fromRGB(0, 140, 200); stroke.Thickness = 0.7; stroke.Parent = frame
         
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0, 320, 1, 0)
@@ -1199,17 +934,13 @@ local function createGUI()
         btn.AutoButtonColor = false
         btn.Parent = frame
         
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(1, 0)
-        btnCorner.Parent = btn
+        local btnCorner = Instance.new("UICorner"); btnCorner.CornerRadius = UDim.new(1, 0); btnCorner.Parent = btn
         
         local state = default
         
         btn.MouseButton1Click:Connect(function()
             state = not state
-            TweenService:Create(btn, TweenInfo.new(0.15), {
-                BackgroundColor3 = state and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(55, 55, 55)
-            }):Play()
+            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = state and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(55, 55, 55)}):Play()
             if callback then callback(state) end
         end)
         
@@ -1224,14 +955,8 @@ local function createGUI()
         frame.BorderSizePixel = 0
         frame.Parent = parent
         
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 5)
-        corner.Parent = frame
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0, 140, 200)
-        stroke.Thickness = 0.7
-        stroke.Parent = frame
+        local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 5); corner.Parent = frame
+        local stroke = Instance.new("UIStroke"); stroke.Color = Color3.fromRGB(0, 140, 200); stroke.Thickness = 0.7; stroke.Parent = frame
         
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0, 200, 0, 16)
@@ -1262,9 +987,7 @@ local function createGUI()
         sliderBar.BorderSizePixel = 0
         sliderBar.Parent = frame
         
-        local barCorner = Instance.new("UICorner")
-        barCorner.CornerRadius = UDim.new(0, 2)
-        barCorner.Parent = sliderBar
+        local barCorner = Instance.new("UICorner"); barCorner.CornerRadius = UDim.new(0, 2); barCorner.Parent = sliderBar
         
         local fill = Instance.new("Frame")
         fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
@@ -1272,9 +995,7 @@ local function createGUI()
         fill.BorderSizePixel = 0
         fill.Parent = sliderBar
         
-        local fillCorner = Instance.new("UICorner")
-        fillCorner.CornerRadius = UDim.new(0, 2)
-        fillCorner.Parent = fill
+        local fillCorner = Instance.new("UICorner"); fillCorner.CornerRadius = UDim.new(0, 2); fillCorner.Parent = fill
         
         local dragging = false
         
@@ -1311,14 +1032,8 @@ local function createGUI()
         btn.AutoButtonColor = false
         btn.Parent = parent
         
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 5)
-        corner.Parent = btn
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0, 200, 255)
-        stroke.Thickness = 0.8
-        stroke.Parent = btn
+        local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 5); corner.Parent = btn
+        local stroke = Instance.new("UIStroke"); stroke.Color = Color3.fromRGB(0, 200, 255); stroke.Thickness = 0.8; stroke.Parent = btn
         
         btn.MouseButton1Click:Connect(function()
             callback()
@@ -1352,9 +1067,8 @@ local function createGUI()
         lbl.Parent = parent
     end
     
-    -- ============ MOVEMENT TAB ============
+    -- Movement Tab
     addLabel(MovementPage, "--- MOVEMENT ---")
-    
     addToggle(MovementPage, "Flight", false, function(state) Settings.Flight.Enabled = state; setupFlight() end)
     addSlider(MovementPage, "Flight Speed", 20, 300, 50, function(v) Settings.Flight.Speed = v end)
     addToggle(MovementPage, "Speed Boost", false, function(state) Settings.Speed.Enabled = state; setupSpeed() end)
@@ -1365,16 +1079,14 @@ local function createGUI()
     addToggle(MovementPage, "NoClip", false, function(state) Settings.NoClip.Enabled = state; setupNoClip() end)
     addToggle(MovementPage, "Click TP (Ctrl+Click)", false, function(state) Settings.ClickTP.Enabled = state end)
     
-    -- ============ BLOCKS TAB ============
+    -- Blocks Tab
     addLabel(BlocksPage, "--- BLOCK SPAWNER ---")
     addInfoLabel(BlocksPage, "NumPad1: Spawn | NumPad2: Clear | NumPad3: Teleport")
-    
     addButton(BlocksPage, "Spawn Block Under You", function() spawnBlockUnder() end)
     addButton(BlocksPage, "Clear All Blocks", function() clearBlocks() end)
     addSlider(BlocksPage, "Block Size", 2, 50, 10, function(v) Settings.BlockSpawn.Size = v end)
     
     addLabel(BlocksPage, "--- COLORS ---")
-    
     local colorGrid = Instance.new("Frame")
     colorGrid.Size = UDim2.new(0, 450, 0, 36)
     colorGrid.BackgroundTransparency = 1
@@ -1411,7 +1123,6 @@ local function createGUI()
     end
     
     addLabel(BlocksPage, "--- MATERIALS ---")
-    
     local matGrid = Instance.new("Frame")
     matGrid.Size = UDim2.new(0, 450, 0, 65)
     matGrid.BackgroundTransparency = 1
@@ -1449,21 +1160,13 @@ local function createGUI()
         mb.MouseButton1Click:Connect(function() Settings.BlockSpawn.Material = m[1]; notify("Material", m[2], 1.5) end)
     end
     
-    -- ============ VISUAL TAB ============
+    -- Visual Tab
     addLabel(VisualPage, "--- VISUAL ---")
-    
     addToggle(VisualPage, "Player ESP", false, function(s) Settings.ESP.Enabled = s; setupESP() end)
     addToggle(VisualPage, "ESP Boxes", true, function(s) Settings.ESP.Boxes = s; setupESP() end)
     addToggle(VisualPage, "ESP Names", true, function(s) Settings.ESP.Names = s; setupESP() end)
     addToggle(VisualPage, "ESP Distance", true, function(s) Settings.ESP.Distance = s; setupESP() end)
     addToggle(VisualPage, "ESP Health", true, function(s) Settings.ESP.Health = s; setupESP() end)
-    
-    addLabel(VisualPage, "--- ESP SETTINGS ---")
-    
-    addToggle(VisualPage, "ESP Tracers", false, function(s) Settings.ESP.Tracers = s; setupESP() end)
-    addToggle(VisualPage, "ESP Snaplines", false, function(s) Settings.ESP.Snaplines = s; setupESP() end)
-    addToggle(VisualPage, "ESP Skeletons", false, function(s) Settings.ESP.Skeletons = s; setupESP() end)
-    addToggle(VisualPage, "ESP Head Dot", false, function(s) Settings.ESP.HeadDot = s; setupESP() end)
     addToggle(VisualPage, "ESP Glow", false, function(s) Settings.ESP.Glow = s; setupESP() end)
     addToggle(VisualPage, "ESP Show Weapon", false, function(s) Settings.ESP.ShowWeapon = s; setupESP() end)
     addToggle(VisualPage, "ESP Team Check", false, function(s) Settings.ESP.TeamCheck = s; setupESP() end)
@@ -1471,9 +1174,7 @@ local function createGUI()
     addToggle(VisualPage, "ESP Rainbow", false, function(s) Settings.ESP.Rainbow = s; setupESP() end)
     addToggle(VisualPage, "ESP Visible Only", false, function(s) Settings.ESP.VisibleOnly = s; setupESP() end)
     addToggle(VisualPage, "ESP Text Outline", true, function(s) Settings.ESP.TextOutline = s; setupESP() end)
-    
     addSlider(VisualPage, "ESP Max Distance", 100, 5000, 500, function(v) Settings.ESP.MaxDistance = v end)
-    addSlider(VisualPage, "ESP Refresh Rate", 1, 10, 2, function(v) Settings.ESP.RefreshRate = v end)
     
     addToggle(VisualPage, "Full Bright", false, function(s) Settings.FullBright.Enabled = s; setupFullBright() end)
     addSlider(VisualPage, "Field of View", 30, 120, 70, function(v) Settings.FOV = v; Camera.FieldOfView = v end)
@@ -1481,9 +1182,8 @@ local function createGUI()
     addToggle(VisualPage, "Chams", false, function(s) Settings.Chams.Enabled = s; setupChams() end)
     addToggle(VisualPage, "X-Ray", false, function(s) Settings.XRay.Enabled = s; setupXRay() end)
     
-    -- ============ COMBAT TAB ============
+    -- Combat Tab
     addLabel(CombatPage, "--- COMBAT ---")
-    
     addToggle(CombatPage, "Aimbot", false, function(s) Settings.Aimbot.Enabled = s; setupAimbot() end)
     addSlider(CombatPage, "Aimbot FOV", 10, 360, 100, function(v) Settings.Aimbot.FOV = v end)
     addSlider(CombatPage, "Smoothness", 0.1, 1, 0.5, function(v) Settings.Aimbot.Smoothness = v end)
@@ -1492,9 +1192,8 @@ local function createGUI()
     addToggle(CombatPage, "Kill Aura", false, function(s) Settings.KillAura.Enabled = s; setupKillAura() end)
     addSlider(CombatPage, "Kill Aura Range", 5, 50, 20, function(v) Settings.KillAura.Range = v end)
     
-    -- ============ WORLD TAB ============
+    -- World Tab
     addLabel(WorldPage, "--- WORLD ---")
-    
     addButton(WorldPage, "Teleport to Cursor", function() teleportToCursor(); notify("TP", "Done!", 1.5) end)
     addButton(WorldPage, "FPS Booster", function() boostFPS(); notify("FPS", "Boosted!", 2) end)
     addToggle(WorldPage, "Anti-AFK", false, function(s) Settings.AntiAfk.Enabled = s; setupAntiAfk() end)
@@ -1503,10 +1202,9 @@ local function createGUI()
     addToggle(WorldPage, "Gravity Changer", false, function(s) Settings.Gravity.Enabled = s; Workspace.Gravity = s and Settings.Gravity.Value or 196.2 end)
     addSlider(WorldPage, "Gravity", 0, 500, 196.2, function(v) Settings.Gravity.Value = v; if Settings.Gravity.Enabled then Workspace.Gravity = v end end)
     
-    -- ============ HUB CHAT TAB ============
+    -- Hub Chat Tab
     addLabel(ChatPage, "--- HUB CHAT ---")
     addInfoLabel(ChatPage, "Chat between Pro Hub users only")
-    addInfoLabel(ChatPage, "Messages sent via RemoteEvent")
     
     local chatDisplay = Instance.new("Frame")
     chatDisplay.Size = UDim2.new(0, 450, 0, 160)
@@ -1527,10 +1225,7 @@ local function createGUI()
     chatScroller.CanvasSize = UDim2.new(0, 0, 0, 0)
     chatScroller.Parent = chatDisplay
     
-    local chatLayout = Instance.new("UIListLayout")
-    chatLayout.Padding = UDim.new(0, 2)
-    chatLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    chatLayout.Parent = chatScroller
+    local chatLayout = Instance.new("UIListLayout"); chatLayout.Padding = UDim.new(0, 2); chatLayout.SortOrder = Enum.SortOrder.LayoutOrder; chatLayout.Parent = chatScroller
     
     local function updateChatDisplay()
         for _, child in pairs(chatScroller:GetChildren()) do
@@ -1612,14 +1307,9 @@ local function createGUI()
         if enterPressed then sendHubMessage() end
     end)
     
-    spawn(function()
-        while true do
-            updateChatDisplay()
-            task.wait(1)
-        end
-    end)
+    spawn(function() while true do updateChatDisplay(); task.wait(1) end end)
     
-    -- ============ SETTINGS TAB ============
+    -- Settings Tab
     addLabel(SettingsPage, "--- GAME INFO ---")
     
     local gameInfoFrame = Instance.new("Frame")
@@ -1737,7 +1427,7 @@ local function createGUI()
     addButton(SettingsPage, "Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
     addButton(SettingsPage, "Copy Game Link", function() setclipboard("https://www.roblox.com/games/" .. game.PlaceId .. "/"); notify("Link", "Copied!", 1.5) end)
     
-    -- ============ INSTRUCTIONS TAB ============
+    -- Info Tab
     addLabel(InstructPage, "--- CREATOR ---")
     
     local creatorFrame = Instance.new("Frame")
@@ -1794,7 +1484,7 @@ local function createGUI()
     return ScreenGui
 end
 
--- // Keybinds
+-- Keybinds
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -1807,7 +1497,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- // Infinite Jump
+-- Infinite Jump
 UserInputService.JumpRequest:Connect(function()
     if Settings.InfiniteJump.Enabled then
         local hum = getHum()
@@ -1815,12 +1505,12 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- // Click TP
+-- Click TP
 Mouse.Button1Down:Connect(function()
     if Settings.ClickTP.Enabled and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then teleportToCursor() end
 end)
 
--- // Character Respawn
+-- Character Respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     if Settings.Speed.Enabled then setupSpeed() end
@@ -1829,6 +1519,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     if Settings.NoClip.Enabled then setupNoClip() end
 end)
 
--- // Initialize
+-- Initialize
 createGUI()
 notify("Pro Hub v1.2.1", "by mcherenkovYT | RightShift: Toggle", 6)
