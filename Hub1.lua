@@ -630,44 +630,115 @@ end
 local function sendChatMessage(message)
     if not message or message == "" then return end
     
-    local success = pcall(function()
-        if TextChatService.ChatInputBarConfiguration then
-            local textChannels = TextChatService:FindFirstChild("TextChannels")
-            if textChannels then
-                local generalChannel = textChannels:FindFirstChild("RBXGeneral")
-                if generalChannel then
-                    generalChannel:SendAsync(message)
-                    return true
+    -- Метод для РФ: виртуальный ввод напрямую
+    spawn(function()
+        notify("Chat", "Sending via keyboard...", 2)
+        
+        -- Нажимаем / чтобы открыть чат
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Slash, false, nil)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Slash, false, nil)
+        task.wait(0.2)
+        
+        -- Печатаем сообщение по буквам
+        for i = 1, #message do
+            local char = message:sub(i, i)
+            local upper = char:upper()
+            local key = Enum.KeyCode[upper]
+            
+            if key then
+                -- Если буква заглавная, зажимаем Shift
+                if char ~= char:lower() and char:match("%a") then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
+                    task.wait(0.02)
                 end
+                
+                VirtualInputManager:SendKeyEvent(true, key, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, key, false, nil)
+                
+                if char ~= char:lower() and char:match("%a") then
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, nil)
+                end
+            elseif char == " " then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, nil)
+            elseif char == "!" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.One, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.One, false, nil)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, nil)
+            elseif char == "?" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Slash, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Slash, false, nil)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, nil)
+            elseif char == "." then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Period, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Period, false, nil)
+            elseif char == "," then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Comma, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Comma, false, nil)
+            elseif char == "0" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Zero, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Zero, false, nil)
+            elseif char == "1" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.One, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.One, false, nil)
+            elseif char == "2" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, nil)
+            elseif char == "3" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Three, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Three, false, nil)
+            elseif char == "4" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Four, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Four, false, nil)
+            elseif char == "5" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Five, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Five, false, nil)
+            elseif char == "6" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Six, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Six, false, nil)
+            elseif char == "7" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Seven, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Seven, false, nil)
+            elseif char == "8" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Eight, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Eight, false, nil)
+            elseif char == "9" then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Nine, false, nil)
+                task.wait(0.02)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Nine, false, nil)
             end
+            task.wait(0.015)
         end
+        
+        -- Нажимаем Enter
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, nil)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, nil)
+        
+        notify("Chat", "Sent: " .. message, 2)
     end)
-    if success then notify("Chat", "Sent: " .. message, 2); return end
-    
-    local success2 = pcall(function()
-        local chatService = game:GetService("Chat")
-        if chatService then
-            chatService:Chat(LocalPlayer.Character.Head, message, Enum.ChatColor.Blue)
-            return true
-        end
-    end)
-    if success2 then notify("Chat", "Sent: " .. message, 2); return end
-    
-    local success3 = pcall(function()
-        local chatRemote = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-        if chatRemote then
-            local sayMessageRequest = chatRemote:FindFirstChild("SayMessageRequest")
-            if sayMessageRequest then
-                sayMessageRequest:FireServer(message, "All")
-                return true
-            end
-        end
-    end)
-    if success3 then notify("Chat", "Sent: " .. message, 2); return end
-    
-    notify("Chat Error", "Could not send!", 3)
 end
-
 local function openChatGUI()
     local chatGui = game:GetService("CoreGui"):FindFirstChild("CustomChatInput")
     if chatGui then chatGui:Destroy(); return end
