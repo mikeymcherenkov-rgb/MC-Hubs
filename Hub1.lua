@@ -495,32 +495,18 @@ local function setupKillAura()
 end
 
 -- ============ ESP SYSTEM ============
-local function createDrawing(type, properties)
-    local drawing
-    pcall(function()
-        if type == "Line" then drawing = Drawing.new("Line")
-        elseif type == "Text" then drawing = Drawing.new("Text")
-        elseif type == "Square" then drawing = Drawing.new("Square")
-        elseif type == "Circle" then drawing = Drawing.new("Circle")
-        end
-        if drawing then
-            for prop, value in pairs(properties) do
-                pcall(function() drawing[prop] = value end)
-            end
-        end
-    end)
-    return drawing
-end
-
 local function setupESP()
+    -- Clear old ESP
     for _, objList in pairs(ESPObjects) do
         for _, obj in pairs(objList) do
             if type(obj) == "table" then
-                for _, d in pairs(obj) do
-                    if d and d.Remove then d:Remove() end
+                for _, v in pairs(obj) do
+                    if v and v.Remove then v:Remove()
+                    elseif v and v:Destroy then v:Destroy() end
                 end
-            elseif obj and obj.Remove then
-                obj:Remove()
+            elseif obj then
+                if obj.Remove then obj:Remove()
+                elseif obj:Destroy then obj:Destroy() end
             end
         end
     end
@@ -532,6 +518,36 @@ local function setupESP()
     ESPConnections = {}
     
     if not Settings.ESP.Enabled then return end
+    
+    -- Check if Drawing is available
+    local useDrawing = false
+    pcall(function()
+        local test = Drawing.new("Line")
+        if test then
+            test:Remove()
+            useDrawing = true
+        end
+    end)
+    
+    local function createDrawing(type, properties)
+        if useDrawing then
+            local drawing
+            pcall(function()
+                if type == "Line" then drawing = Drawing.new("Line")
+                elseif type == "Text" then drawing = Drawing.new("Text")
+                elseif type == "Square" then drawing = Drawing.new("Square")
+                elseif type == "Circle" then drawing = Drawing.new("Circle")
+                end
+                if drawing then
+                    for prop, value in pairs(properties) do
+                        pcall(function() drawing[prop] = value end)
+                    end
+                end
+            end)
+            return drawing
+        end
+        return nil
+    end
     
     local function addESP(player)
         if player == LocalPlayer then return end
@@ -552,174 +568,154 @@ local function setupESP()
                 color = player.Team.TeamColor.Color
             end
             
-            -- 2D Box
-            if Settings.ESP.Boxes and Settings.ESP.BoxType == "2D" then
-                local boxOutline = createDrawing("Square", {
-                    Thickness = Settings.ESP.BoxThickness + 1,
-                    Color = Color3.new(0, 0, 0),
-                    Filled = false,
-                    Visible = false,
-                    ZIndex = 4
-                })
-                local box = createDrawing("Square", {
-                    Thickness = Settings.ESP.BoxThickness,
-                    Color = color,
-                    Filled = false,
-                    Visible = false,
-                    ZIndex = 5
-                })
-                if boxOutline then table.insert(drawings, boxOutline) end
-                if box then table.insert(drawings, box) end
-            end
+            -- Billboard GUI as fallback for names and info
+            local billboard = Instance.new("BillboardGui")
+            billboard.Size = UDim2.new(0, 200, 0, 80)
+            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = head
             
-            -- Tracers
-            if Settings.ESP.Tracers then
-                local tracer = createDrawing("Line", {
-                    Thickness = Settings.ESP.TracerThickness,
-                    Color = Settings.ESP.TracerColor,
-                    Visible = false,
-                    ZIndex = 2
-                })
-                if tracer then table.insert(drawings, tracer) end
-            end
-            
-            -- Snaplines
-            if Settings.ESP.Snaplines then
-                local snapline = createDrawing("Line", {
-                    Thickness = Settings.ESP.SnaplineThickness,
-                    Color = Settings.ESP.SnaplineColor,
-                    Visible = false,
-                    ZIndex = 2
-                })
-                if snapline then table.insert(drawings, snapline) end
+            -- Box (3D)
+            if Settings.ESP.Boxes then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Size = Vector3.new(2, 3, 1)
+                box.Adornee = char
+                box.Color3 = color
+                box.AlwaysOnTop = true
+                box.ZIndex = 5
+                box.Transparency = 0.3
+                box.Parent = char
+                table.insert(drawings, box)
             end
             
             -- Name
             if Settings.ESP.Names then
-                local nameText = createDrawing("Text", {
-                    Text = player.Name,
-                    Size = Settings.ESP.NameSize,
-                    Color = Settings.ESP.NameColor,
-                    Center = true,
-                    Outline = Settings.ESP.TextOutline,
-                    OutlineColor = Color3.new(0, 0, 0),
-                    Font = Drawing.Fonts.UI,
-                    Visible = false,
-                    ZIndex = 6
-                })
-                if nameText then table.insert(drawings, nameText) end
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1, 0, 0, 20)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.Text = player.Name
+                nameLabel.TextColor3 = Settings.ESP.NameColor
+                nameLabel.TextStrokeTransparency = Settings.ESP.TextOutline and 0 or 1
+                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.TextSize = Settings.ESP.NameSize
+                nameLabel.Parent = billboard
             end
             
             -- Distance
             if Settings.ESP.Distance then
-                local distText = createDrawing("Text", {
-                    Text = "0m",
-                    Size = Settings.ESP.NameSize - 2,
-                    Color = Settings.ESP.DistanceColor,
-                    Center = true,
-                    Outline = Settings.ESP.TextOutline,
-                    OutlineColor = Color3.new(0, 0, 0),
-                    Font = Drawing.Fonts.UI,
-                    Visible = false,
-                    ZIndex = 6
-                })
-                if distText then table.insert(drawings, distText) end
+                local distLabel = Instance.new("TextLabel")
+                distLabel.Size = UDim2.new(1, 0, 0, 18)
+                distLabel.Position = UDim2.new(0, 0, 0, 20)
+                distLabel.BackgroundTransparency = 1
+                distLabel.Text = "0m"
+                distLabel.TextColor3 = Settings.ESP.DistanceColor
+                distLabel.TextStrokeTransparency = Settings.ESP.TextOutline and 0 or 1
+                distLabel.Font = Enum.Font.Gotham
+                distLabel.TextSize = Settings.ESP.NameSize - 2
+                distLabel.Name = "Distance"
+                distLabel.Parent = billboard
             end
             
-            -- Health Bar
-            if Settings.ESP.Health and (Settings.ESP.HealthType == "Bar" or Settings.ESP.HealthType == "Both") then
-                local healthBg = createDrawing("Line", {
-                    Thickness = 5,
-                    Color = Color3.new(0.2, 0.2, 0.2),
-                    Visible = false,
-                    ZIndex = 4
-                })
-                local healthFill = createDrawing("Line", {
-                    Thickness = 5,
-                    Color = Settings.ESP.HealthColor,
-                    Visible = false,
-                    ZIndex = 5
-                })
-                if healthBg then table.insert(drawings, healthBg) end
-                if healthFill then table.insert(drawings, healthFill) end
-            end
-            
-            -- Health Text
-            if Settings.ESP.Health and (Settings.ESP.HealthType == "Text" or Settings.ESP.HealthType == "Both") then
-                local healthText = createDrawing("Text", {
-                    Text = "100",
-                    Size = Settings.ESP.NameSize - 2,
-                    Color = Settings.ESP.HealthColor,
-                    Center = true,
-                    Outline = true,
-                    OutlineColor = Color3.new(0, 0, 0),
-                    Font = Drawing.Fonts.UI,
-                    Visible = false,
-                    ZIndex = 6
-                })
-                if healthText then table.insert(drawings, healthText) end
-            end
-            
-            -- Head Dot
-            if Settings.ESP.HeadDot then
-                local dot = createDrawing("Circle", {
-                    Radius = Settings.ESP.HeadDotSize,
-                    Color = Settings.ESP.HeadDotColor,
-                    Filled = true,
-                    Visible = false,
-                    ZIndex = 7
-                })
-                if dot then table.insert(drawings, dot) end
-            end
-            
-            -- Skeleton
-            if Settings.ESP.Skeletons then
-                for i = 1, 14 do
-                    local bone = createDrawing("Line", {
-                        Thickness = 1,
-                        Color = Settings.ESP.SkeletonColor,
-                        Visible = false,
-                        ZIndex = 4
-                    })
-                    if bone then table.insert(drawings, bone) end
-                end
+            -- Health
+            if Settings.ESP.Health then
+                local healthBar = Instance.new("Frame")
+                healthBar.Size = UDim2.new(1, 0, 0, 4)
+                healthBar.Position = UDim2.new(0, 0, 0, 38)
+                healthBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                healthBar.Parent = billboard
+                
+                local healthFill = Instance.new("Frame")
+                healthFill.Size = UDim2.new(1, 0, 1, 0)
+                healthFill.BackgroundColor3 = Settings.ESP.HealthColor
+                healthFill.Parent = healthBar
             end
             
             -- Glow
             if Settings.ESP.Glow then
-                local glowSquare = createDrawing("Square", {
-                    Thickness = 3,
-                    Color = Settings.ESP.GlowColor,
-                    Filled = false,
-                    Transparency = Settings.ESP.GlowTransparency,
-                    Visible = false,
-                    ZIndex = 1
-                })
-                if glowSquare then table.insert(drawings, glowSquare) end
+                local glow = Instance.new("Highlight")
+                glow.FillColor = Settings.ESP.GlowColor
+                glow.FillTransparency = Settings.ESP.GlowTransparency
+                glow.OutlineColor = Settings.ESP.GlowColor
+                glow.OutlineTransparency = Settings.ESP.GlowTransparency
+                glow.Parent = char
+                table.insert(drawings, glow)
             end
             
-            -- Weapon Text
+            -- Weapon
             if Settings.ESP.ShowWeapon then
-                local weaponText = createDrawing("Text", {
-                    Text = "",
-                    Size = Settings.ESP.NameSize - 2,
-                    Color = Color3.fromRGB(255, 200, 0),
-                    Center = true,
-                    Outline = true,
-                    OutlineColor = Color3.new(0, 0, 0),
-                    Font = Drawing.Fonts.UI,
-                    Visible = false,
-                    ZIndex = 6
-                })
-                if weaponText then table.insert(drawings, weaponText) end
+                local weaponLabel = Instance.new("TextLabel")
+                weaponLabel.Size = UDim2.new(1, 0, 0, 18)
+                weaponLabel.Position = UDim2.new(0, 0, 0, 43)
+                weaponLabel.BackgroundTransparency = 1
+                weaponLabel.Text = ""
+                weaponLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+                weaponLabel.TextStrokeTransparency = 0
+                weaponLabel.Font = Enum.Font.Gotham
+                weaponLabel.TextSize = Settings.ESP.NameSize - 3
+                weaponLabel.Name = "Weapon"
+                weaponLabel.Parent = billboard
+            end
+            
+            if useDrawing then
+                -- Tracers (Drawing)
+                if Settings.ESP.Tracers then
+                    local tracer = createDrawing("Line", {
+                        Thickness = Settings.ESP.TracerThickness,
+                        Color = Settings.ESP.TracerColor,
+                        Visible = false,
+                        ZIndex = 2
+                    })
+                    if tracer then table.insert(drawings, tracer) end
+                end
+                
+                -- Snaplines (Drawing)
+                if Settings.ESP.Snaplines then
+                    local snapline = createDrawing("Line", {
+                        Thickness = Settings.ESP.SnaplineThickness,
+                        Color = Settings.ESP.SnaplineColor,
+                        Visible = false,
+                        ZIndex = 2
+                    })
+                    if snapline then table.insert(drawings, snapline) end
+                end
+                
+                -- Head Dot (Drawing)
+                if Settings.ESP.HeadDot then
+                    local dot = createDrawing("Circle", {
+                        Radius = Settings.ESP.HeadDotSize,
+                        Color = Settings.ESP.HeadDotColor,
+                        Filled = true,
+                        Visible = false,
+                        ZIndex = 7
+                    })
+                    if dot then table.insert(drawings, dot) end
+                end
+                
+                -- Skeleton (Drawing)
+                if Settings.ESP.Skeletons then
+                    for i = 1, 14 do
+                        local bone = createDrawing("Line", {
+                            Thickness = 1,
+                            Color = Settings.ESP.SkeletonColor,
+                            Visible = false,
+                            ZIndex = 4
+                        })
+                        if bone then table.insert(drawings, bone) end
+                    end
+                end
             end
             
             ESPObjects[player.UserId] = drawings
+            ESPObjects[player.UserId].Billboard = billboard
             
             -- Update loop
-            local connection = RunService.RenderStepped:Connect(function()
+            local connection = RunService.Heartbeat:Connect(function()
                 if not Settings.ESP.Enabled then
-                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    for _, d in pairs(drawings) do
+                        if type(d) == "table" then for _, sub in pairs(d) do if sub.Visible ~= nil then sub.Visible = false end end
+                        elseif d.Visible ~= nil then d.Visible = false end
+                    end
+                    if billboard then billboard.Enabled = false end
                     return
                 end
                 
@@ -730,265 +726,172 @@ local function setupESP()
                 if myRoot then
                     local dist = (rootPart.Position - myRoot.Position).Magnitude
                     if dist > Settings.ESP.MaxDistance then
-                        for _, d in pairs(drawings) do if d then d.Visible = false end end
+                        if billboard then billboard.Enabled = false end
+                        for _, d in pairs(drawings) do
+                            if type(d) == "table" then for _, sub in pairs(d) do if sub.Visible ~= nil then sub.Visible = false end end
+                            elseif d.Visible ~= nil then d.Visible = false end
+                        end
                         return
                     end
                 end
                 
                 if Settings.ESP.VisibleOnly and not isVisible(player) then
-                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    if billboard then billboard.Enabled = false end
                     return
                 end
                 
                 if humanoid.Health <= 0 then
-                    for _, d in pairs(drawings) do if d then d.Visible = false end end
+                    if billboard then billboard.Enabled = false end
                     return
                 end
                 
                 if Settings.ESP.Rainbow then color = getRainbowColor() end
                 
-                local headPos = Camera:WorldToViewportPoint(head.Position)
-                local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
+                -- Enable billboard
+                if billboard then billboard.Enabled = true end
                 
-                if headPos.Z <= 0 then
-                    for _, d in pairs(drawings) do if d then d.Visible = false end end
-                    return
+                -- Update distance label
+                if Settings.ESP.Distance and myRoot then
+                    local distLabel = billboard:FindFirstChild("Distance")
+                    if distLabel then
+                        distLabel.Text = math.floor((rootPart.Position - myRoot.Position).Magnitude) .. "m"
+                    end
                 end
                 
-                local extents = char:GetExtentsSize()
-                local topPos = Camera:WorldToViewportPoint((head.CFrame * CFrame.new(0, extents.Y/2 + 0.5, 0)).Position)
-                local bottomPos = Camera:WorldToViewportPoint((rootPart.CFrame * CFrame.new(0, -extents.Y/2 - 0.5, 0)).Position)
+                -- Update health bar
+                if Settings.ESP.Health then
+                    local healthBar = billboard:FindFirstChild("Frame")
+                    if healthBar and healthBar:FindFirstChild("Frame") then
+                        local healthPercent = humanoid.Health / humanoid.MaxHealth
+                        healthBar:FindFirstChild("Frame").Size = UDim2.new(healthPercent, 0, 1, 0)
+                        local hc = Color3.fromHSV(healthPercent * 0.33, 1, 1)
+                        healthBar:FindFirstChild("Frame").BackgroundColor3 = hc
+                    end
+                end
                 
-                local boxHeight = math.abs(topPos.Y - bottomPos.Y)
-                local boxWidth = boxHeight * 0.5
-                local boxX = headPos.X - boxWidth/2
-                local boxY = topPos.Y
-                
-                -- Update Box
-                if Settings.ESP.Boxes and Settings.ESP.BoxType == "2D" then
-                    local idx = 1
+                -- Update box color
+                if Settings.ESP.Boxes then
                     for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Square" then
-                            if idx == 1 then
-                                d.Size = Vector2.new(boxWidth, boxHeight)
-                                d.Position = Vector2.new(boxX, boxY)
-                                d.Visible = true
-                            elseif idx == 2 then
-                                d.Size = Vector2.new(boxWidth, boxHeight)
-                                d.Position = Vector2.new(boxX, boxY)
-                                d.Color = color
-                                d.Visible = true
-                            end
-                            idx = idx + 1
+                        if d and d:IsA("BoxHandleAdornment") then
+                            d.Color3 = color
                         end
                     end
                 end
                 
-                -- Update Tracers
-                if Settings.ESP.Tracers then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.TracerThickness and d.ZIndex == 2 then
-                            local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                            if Settings.ESP.TracerOrigin == "Top" then
-                                startPos = Vector2.new(Camera.ViewportSize.X/2, 0)
-                            elseif Settings.ESP.TracerOrigin == "Middle" then
-                                startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-                            elseif Settings.ESP.TracerOrigin == "Mouse" then
-                                startPos = Vector2.new(Mouse.X, Mouse.Y)
-                            end
-                            d.From = startPos
-                            d.To = Vector2.new(rootPos.X, rootPos.Y)
-                            d.Visible = true
-                            break
-                        end
+                -- Update weapon
+                if Settings.ESP.ShowWeapon then
+                    local weaponLabel = billboard:FindFirstChild("Weapon")
+                    if weaponLabel then
+                        local tool = char:FindFirstChildOfClass("Tool")
+                        weaponLabel.Text = tool and "[" .. tool.Name .. "]" or ""
+                        weaponLabel.Visible = tool ~= nil
                     end
                 end
                 
-                -- Update Snaplines
-                if Settings.ESP.Snaplines then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.SnaplineThickness and d.ZIndex == 2 then
-                            d.From = Vector2.new(rootPos.X, rootPos.Y)
-                            d.To = Vector2.new(rootPos.X, Camera.ViewportSize.Y)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Name
-                if Settings.ESP.Names then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize then
-                            d.Position = Vector2.new(headPos.X, topPos.Y - 15)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Distance
-                if Settings.ESP.Distance then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 then
-                            local dist = myRoot and math.floor((rootPart.Position - myRoot.Position).Magnitude) or 0
-                            d.Text = dist .. "m"
-                            d.Position = Vector2.new(headPos.X, topPos.Y - 30)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Health Bar
-                if Settings.ESP.Health and (Settings.ESP.HealthType == "Bar" or Settings.ESP.HealthType == "Both") then
-                    local healthPercent = humanoid.Health / humanoid.MaxHealth
-                    local healthColor = Color3.fromHSV(healthPercent * 0.33, 1, 1)
+                -- Update Drawing elements (if available)
+                if useDrawing then
+                    local headPos = Camera:WorldToViewportPoint(head.Position)
+                    local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
                     
-                    local barIdx = 1
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Line" and d.Thickness == 5 then
-                            if Settings.ESP.HealthPosition == "Left" then
-                                local barX = boxX - 8
-                                local barHeight = boxHeight * healthPercent
-                                if barIdx == 1 then
-                                    d.From = Vector2.new(barX, boxY + boxHeight)
-                                    d.To = Vector2.new(barX, boxY)
-                                elseif barIdx == 2 then
-                                    d.From = Vector2.new(barX, boxY + boxHeight)
-                                    d.To = Vector2.new(barX, boxY + boxHeight - barHeight)
-                                    d.Color = healthColor
-                                end
-                            elseif Settings.ESP.HealthPosition == "Right" then
-                                local barX = boxX + boxWidth + 8
-                                local barHeight = boxHeight * healthPercent
-                                if barIdx == 1 then
-                                    d.From = Vector2.new(barX, boxY + boxHeight)
-                                    d.To = Vector2.new(barX, boxY)
-                                elseif barIdx == 2 then
-                                    d.From = Vector2.new(barX, boxY + boxHeight)
-                                    d.To = Vector2.new(barX, boxY + boxHeight - barHeight)
-                                    d.Color = healthColor
-                                end
-                            elseif Settings.ESP.HealthPosition == "Top" then
-                                local barY = boxY - 8
-                                local barWidth = boxWidth * healthPercent
-                                if barIdx == 1 then
-                                    d.From = Vector2.new(boxX, barY)
-                                    d.To = Vector2.new(boxX + boxWidth, barY)
-                                elseif barIdx == 2 then
-                                    d.From = Vector2.new(boxX, barY)
-                                    d.To = Vector2.new(boxX + barWidth, barY)
-                                    d.Color = healthColor
-                                end
-                            else
-                                local barY = boxY + boxHeight + 8
-                                local barWidth = boxWidth * healthPercent
-                                if barIdx == 1 then
-                                    d.From = Vector2.new(boxX, barY)
-                                    d.To = Vector2.new(boxX + boxWidth, barY)
-                                elseif barIdx == 2 then
-                                    d.From = Vector2.new(boxX, barY)
-                                    d.To = Vector2.new(boxX + barWidth, barY)
-                                    d.Color = healthColor
-                                end
-                            end
-                            d.Visible = true
-                            barIdx = barIdx + 1
-                        end
-                    end
-                end
-                
-                -- Update Health Text
-                if Settings.ESP.Health and (Settings.ESP.HealthType == "Text" or Settings.ESP.HealthType == "Both") then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 and d.ZIndex == 6 then
-                            d.Text = math.floor(humanoid.Health) .. " HP"
-                            d.Position = Vector2.new(headPos.X, bottomPos.Y + 5)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Head Dot
-                if Settings.ESP.HeadDot then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Circle" then
-                            d.Position = Vector2.new(headPos.X, headPos.Y)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Skeleton
-                if Settings.ESP.Skeletons then
-                    local parts = {
-                        "Head", "UpperTorso", "LowerTorso",
-                        "LeftUpperArm", "LeftLowerArm", "LeftHand",
-                        "RightUpperArm", "RightLowerArm", "RightHand",
-                        "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
-                        "RightUpperLeg", "RightLowerLeg", "RightFoot"
-                    }
-                    local connections = {
-                        {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-                        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"},
-                        {"LeftLowerArm", "LeftHand"}, {"UpperTorso", "RightUpperArm"},
-                        {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-                        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"},
-                        {"LeftLowerLeg", "LeftFoot"}, {"LowerTorso", "RightUpperLeg"},
-                        {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
-                    }
-                    
-                    local boneIdx = 1
-                    for _, conn in ipairs(connections) do
-                        local partA = char:FindFirstChild(conn[1])
-                        local partB = char:FindFirstChild(conn[2])
-                        if partA and partB then
-                            local posA = Camera:WorldToViewportPoint(partA.Position)
-                            local posB = Camera:WorldToViewportPoint(partB.Position)
+                    if headPos.Z > 0 then
+                        local extents = char:GetExtentsSize()
+                        local topPos = Camera:WorldToViewportPoint((head.CFrame * CFrame.new(0, extents.Y/2 + 0.5, 0)).Position)
+                        local bottomPos = Camera:WorldToViewportPoint((rootPart.CFrame * CFrame.new(0, -extents.Y/2 - 0.5, 0)).Position)
+                        
+                        local boxHeight = math.abs(topPos.Y - bottomPos.Y)
+                        local boxWidth = boxHeight * 0.5
+                        local boxX = headPos.X - boxWidth/2
+                        local boxY = topPos.Y
+                        
+                        -- Tracers
+                        if Settings.ESP.Tracers then
                             for _, d in pairs(drawings) do
-                                if d and d.ClassName == "Line" and d.Thickness == 1 and d.ZIndex == 4 then
-                                    d.From = Vector2.new(posA.X, posA.Y)
-                                    d.To = Vector2.new(posB.X, posB.Y)
+                                if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.TracerThickness then
+                                    local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                                    if Settings.ESP.TracerOrigin == "Top" then
+                                        startPos = Vector2.new(Camera.ViewportSize.X/2, 0)
+                                    elseif Settings.ESP.TracerOrigin == "Middle" then
+                                        startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                                    elseif Settings.ESP.TracerOrigin == "Mouse" then
+                                        startPos = Vector2.new(Mouse.X, Mouse.Y)
+                                    end
+                                    d.From = startPos
+                                    d.To = Vector2.new(rootPos.X, rootPos.Y)
                                     d.Visible = true
                                     break
                                 end
                             end
                         end
-                    end
-                end
-                
-                -- Update Glow
-                if Settings.ESP.Glow then
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Square" and d.ZIndex == 1 then
-                            d.Size = Vector2.new(boxWidth + 6, boxHeight + 6)
-                            d.Position = Vector2.new(boxX - 3, boxY - 3)
-                            d.Visible = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Update Weapon
-                if Settings.ESP.ShowWeapon then
-                    local tool = humanoid and humanoid.Parent and humanoid.Parent:FindFirstChildOfClass("Tool")
-                    for _, d in pairs(drawings) do
-                        if d and d.ClassName == "Text" and d.Size == Settings.ESP.NameSize - 2 and d.ZIndex == 6 then
-                            if tool then
-                                d.Text = "[" .. tool.Name .. "]"
-                                d.Position = Vector2.new(headPos.X, bottomPos.Y + 20)
+                        
+                        -- Snaplines
+                        if Settings.ESP.Snaplines then
+                            for _, d in pairs(drawings) do
+                                if d and d.ClassName == "Line" and d.Thickness == Settings.ESP.SnaplineThickness then
+                                    d.From = Vector2.new(rootPos.X, rootPos.Y)
+                                    d.To = Vector2.new(rootPos.X, Camera.ViewportSize.Y)
+                                    d.Visible = true
+                                    break
+                                end
                             end
-                            d.Visible = tool ~= nil
-                            break
+                        end
+                        
+                        -- Head Dot
+                        if Settings.ESP.HeadDot then
+                            for _, d in pairs(drawings) do
+                                if d and d.ClassName == "Circle" then
+                                    d.Position = Vector2.new(headPos.X, headPos.Y)
+                                    d.Visible = true
+                                    break
+                                end
+                            end
+                        end
+                        
+                        -- Skeleton
+                        if Settings.ESP.Skeletons then
+                            local connections = {
+                                {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+                                {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"},
+                                {"LeftLowerArm", "LeftHand"}, {"UpperTorso", "RightUpperArm"},
+                                {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+                                {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"},
+                                {"LeftLowerLeg", "LeftFoot"}, {"LowerTorso", "RightUpperLeg"},
+                                {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+                            }
+                            
+                            local boneIdx = 1
+                            for _, conn in ipairs(connections) do
+                                local partA = char:FindFirstChild(conn[1])
+                                local partB = char:FindFirstChild(conn[2])
+                                if partA and partB then
+                                    local posA = Camera:WorldToViewportPoint(partA.Position)
+                                    local posB = Camera:WorldToViewportPoint(partB.Position)
+                                    for _, d in pairs(drawings) do
+                                        if d and d.ClassName == "Line" and d.Thickness == 1 and d.ZIndex == 4 then
+                                            if boneIdx == 1 then
+                                                d.From = Vector2.new(posA.X, posA.Y)
+                                                d.To = Vector2.new(posB.X, posB.Y)
+                                                d.Visible = true
+                                                break
+                                            end
+                                            boneIdx = boneIdx - 1
+                                        end
+                                    end
+                                end
+                            end
                         end
                     end
                 end
             end)
             
             ESPConnections[player.UserId] = connection
+            
+            humanoid.Died:Connect(function()
+                if billboard then billboard:Destroy() end
+                for _, d in pairs(drawings) do
+                    if d and d.Remove then d:Remove() end
+                    if d and d:IsA("Instance") then d:Destroy() end
+                end
+            end)
         end
         
         if player.Character then onCharacter(player.Character) end
@@ -1001,7 +904,9 @@ local function setupESP()
     Players.PlayerRemoving:Connect(function(player)
         if ESPObjects[player.UserId] then
             for _, d in pairs(ESPObjects[player.UserId]) do
+                if type(d) == "table" then for _, sub in pairs(d) do if sub.Remove then sub:Remove() end end end
                 if d and d.Remove then d:Remove() end
+                if d and d:IsA("Instance") then d:Destroy() end
             end
             ESPObjects[player.UserId] = nil
         end
@@ -1011,7 +916,6 @@ local function setupESP()
         end
     end)
 end
-
 -- ============ VISUAL ============
 local function setupFullBright()
     if Settings.FullBright.Enabled then
