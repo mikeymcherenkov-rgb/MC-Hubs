@@ -12297,3 +12297,4 @@ task.spawn(function()
 	minimizeHolder()
 	if table.find({Enum.Platform.IOS, Enum.Platform.Android}, UserInputService:GetPlatform()) then notify("Unstable Device", "On mobile, Infinite Yield may have issues or features that are not functioning correctly.") end
 end)
+-- 
