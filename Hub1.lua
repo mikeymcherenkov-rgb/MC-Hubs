@@ -1,6 +1,4 @@
-Вот полный обновленный скрипт `Hub1.lua` с добавленной кнопкой **Inf Yield** во вкладке Settings:
 
-```lua
 --[[
 PRO CHEAT HUB v1.2.1
 by mcherenkovYT
@@ -1199,4 +1197,3 @@ end)
 -- Initialize
 createGUI()
 notify("Pro Hub v1.2.1", "by mcherenkovYT | RightShift: Toggle", 6)
-```
